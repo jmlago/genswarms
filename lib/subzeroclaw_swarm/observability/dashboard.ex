@@ -55,9 +55,17 @@ defmodule SubzeroclawSwarm.Observability.Dashboard do
 
   defp topology_for(swarm_name) do
     case Router.get_topology(swarm_name) do
-      %{} = adj -> Enum.map(adj, fn {from, targets} -> %{from: from, targets: targets} end)
-      list when is_list(list) -> list
-      _ -> []
+      {:ok, adj} when is_map(adj) ->
+        Enum.map(adj, fn {from, targets} -> %{from: from, targets: List.wrap(targets)} end)
+
+      %{} = adj ->
+        Enum.map(adj, fn {from, targets} -> %{from: from, targets: List.wrap(targets)} end)
+
+      list when is_list(list) ->
+        list
+
+      _ ->
+        []
     end
   end
 
@@ -137,54 +145,53 @@ defmodule SubzeroclawSwarm.Observability.Dashboard do
   end
 
   # ── contributions ──────────────────────────────────────────────────────────
+  # Accumulator: {sessions, extensions, pool, saw_sessions?, warnings}. A valid
+  # `:sessions` contribution (even with zero items) means a source exists, so
+  # `missing_sessions_source` fires only when NONE was seen.
   defp fold_contributions(status, contributions) do
-    init = {[], %{}, nil, []}
+    init = {[], %{}, nil, false, []}
 
-    {sessions, extensions, pool, warns} =
-      Enum.reduce(status.objects, init, fn o, {sess, ext, pool, warns} ->
+    {sessions, extensions, pool, saw_sessions, warns} =
+      Enum.reduce(status.objects, init, fn o, acc ->
         name = to_string(o.name)
 
         case Map.get(contributions, o.name) do
-          {:error, kind} ->
-            {sess, ext, pool, [warn(name, "object_#{kind}", "object #{name} #{kind}") | warns]}
-
-          :no_dashboard ->
-            {sess, ext, pool, warns}
-
-          list when is_list(list) ->
-            Enum.reduce(list, {sess, ext, pool, warns}, &merge_contribution(&1, &2, name))
-
-          nil ->
-            {sess, ext, pool, warns}
-
-          other ->
-            {sess, ext, pool, [warn(name, "object_crash", "unexpected: #{inspect(other)}") | warns]}
+          {:error, kind} -> put_warn(acc, name, "object_#{kind}", "object #{name} #{kind}")
+          :no_dashboard -> acc
+          nil -> acc
+          list when is_list(list) -> Enum.reduce(list, acc, &merge_contribution(&1, &2, name))
+          other -> put_warn(acc, name, "object_crash", "unexpected: #{inspect(other)}")
         end
       end)
 
     warns =
-      if sessions == [],
-        do: [warn(nil, "missing_sessions_source", "no object emitted sessions") | warns],
-        else: warns
+      if saw_sessions,
+        do: warns,
+        else: [warn(nil, "missing_sessions_source", "no object emitted sessions") | warns]
 
     {sessions, extensions, pool, Enum.reverse(warns)}
   end
 
-  defp merge_contribution(%{kind: :sessions, items: items} = c, {sess, ext, pool, warns}, name) do
-    if is_list(items) do
-      {sess ++ items, ext, c[:pool] || pool, warns}
-    else
-      {sess, ext, pool, [warn(name, "invalid_sessions_payload", "items not a list") | warns]}
-    end
+  defp merge_contribution(%{kind: :sessions, items: items} = c, {sess, ext, pool, _saw, warns}, _name)
+       when is_list(items) do
+    {sess ++ items, ext, c[:pool] || pool, true, warns}
   end
 
-  defp merge_contribution(%{kind: :extension, name: ename, data: data}, {sess, ext, pool, warns}, _name)
+  defp merge_contribution(%{kind: :sessions}, {sess, ext, pool, saw, warns}, name) do
+    {sess, ext, pool, saw, [warn(name, "invalid_sessions_payload", "items not a list") | warns]}
+  end
+
+  defp merge_contribution(%{kind: :extension, name: ename, data: data}, {sess, ext, pool, saw, warns}, _name)
        when is_binary(ename) and is_map(data) do
-    {sess, Map.put(ext, ename, data), pool, warns}
+    {sess, Map.put(ext, ename, data), pool, saw, warns}
   end
 
-  defp merge_contribution(_bad, {sess, ext, pool, warns}, name) do
-    {sess, ext, pool, [warn(name, "invalid_extension_payload", "malformed contribution") | warns]}
+  defp merge_contribution(_bad, {sess, ext, pool, saw, warns}, name) do
+    {sess, ext, pool, saw, [warn(name, "invalid_extension_payload", "malformed contribution") | warns]}
+  end
+
+  defp put_warn({sess, ext, pool, saw, warns}, object, code, reason) do
+    {sess, ext, pool, saw, [warn(object, code, reason) | warns]}
   end
 
   # ── helpers ────────────────────────────────────────────────────────────────

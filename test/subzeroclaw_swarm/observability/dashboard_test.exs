@@ -54,6 +54,25 @@ defmodule SubzeroclawSwarm.Observability.DashboardTest do
     assert d.sessions == []
   end
 
+  test "empty-but-present sessions contribution: no missing_sessions_source, pool set" do
+    contributions = %{
+      ingress: [%{kind: :sessions, items: [], pool: %{size: 2048, leased: 0, idle: 2048}}],
+      roster: :no_dashboard
+    }
+
+    d = Dashboard.assemble(status(), topology(), contributions, @now)
+    assert d.sessions == []
+    assert d.summary.pool == %{size: 2048, leased: 0, idle: 2048}
+    refute Enum.any?(d.warnings, &(&1.code == "missing_sessions_source"))
+  end
+
+  test "normalizes get_topology adjacency into flat edges" do
+    contributions = %{ingress: [%{kind: :sessions, items: []}]}
+    d = Dashboard.assemble(status(), topology(), contributions, @now)
+    assert %{from: "ingress", to: "policy"} in d.edges
+    assert %{from: "wingston_agent_0", to: "sender"} in d.edges
+  end
+
   test "invalid contributions become warnings, valid ones still pass" do
     contributions = %{
       ingress: [%{kind: :sessions, items: "not a list"}],
