@@ -13,7 +13,6 @@ defmodule GenswarmWeb.SwarmChannel do
 
   alias Genswarm.SwarmManager
   alias Genswarm.CLI.SwarmRegistry
-  alias Genswarm.Observability.LogStore
 
   @impl true
   def join("swarm:" <> swarm_name, _params, socket) do
@@ -95,12 +94,13 @@ defmodule GenswarmWeb.SwarmChannel do
     log_subs = MapSet.put(socket.assigns.log_subscriptions, {agent, topic})
     socket = assign(socket, :log_subscriptions, log_subs)
 
-    # Send recent logs as initial data
+    # Send recent logs as initial data (from the shared store, so daemon swarms
+    # in other BEAMs are visible too — the live stream then arrives via EventRelay).
     recent_logs =
       if agent do
-        LogStore.query(swarm: swarm_name, agent: String.to_atom(agent), limit: 50)
+        SwarmRegistry.query_events(swarm: swarm_name, agent: String.to_atom(agent), limit: 50)
       else
-        LogStore.query(swarm: swarm_name, limit: 50)
+        SwarmRegistry.query_events(swarm: swarm_name, limit: 50)
       end
       |> Enum.map(&format_log_entry/1)
       |> Enum.reverse()
@@ -150,7 +150,7 @@ defmodule GenswarmWeb.SwarmChannel do
       |> maybe_add_filter(filters, "event_type", :event_type)
 
     recent_events =
-      LogStore.query(query_opts)
+      SwarmRegistry.query_events(query_opts)
       |> Enum.map(&format_event/1)
       |> Enum.reverse()
 

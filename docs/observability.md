@@ -123,6 +123,60 @@ This is the payoff of a single spine: feeding `LogStore` from the bridge improve
 the CLI, the REST `/api/events` endpoints, and the WS stream at once — none of
 them needed to be touched.
 
+## Deployment topologies (one node vs. many daemons)
+
+This matters because a BEAM's in-memory machinery (PubSub, the process `Registry`,
+the ETS `LogStore`) is **node-local** — invisible from another OS process. Two
+shapes:
+
+**Co-located** — the swarm runs in the same BEAM as the Phoenix endpoint (e.g.
+started in-process via `POST /api/swarms`). Live PubSub, the WS stream, and the
+live snapshot endpoints all work directly. Nothing special needed.
+
+**Monitor + daemons** — the usual shape at scale: each swarm runs as its own
+daemon (`swarm start`, its own BEAM), and a separate monitor/API node observes
+all of them. Here the only thing the processes share is the SQLite `events` table.
+So observability crosses processes like this:
+
+```
+daemon swarm A ─┐  emit_telemetry → LogStore → SQLite events  ┐
+daemon swarm B ─┤                                             ├─►  shared .swarm/swarms.db
+daemon swarm C ─┘                                             ┘
+                                                              │
+                          monitor / API node ───── EventRelay polls `events_since` ──┐
+                                                              │                       │
+                          REST /api/events  ── reads SQLite ──┤                       ▼
+                          WS swarm:<name>    ◄─ EventRelay re-broadcasts {:log_event} onto
+                                                 the same LogStore PubSub topics → SwarmChannel push
+```
+
+- **`GET /api/events`** (and the swarm/agent variants) read SQLite, so they
+  surface **every** swarm, daemon or in-process.
+- **`Genswarm.Observability.EventRelay`** runs on the monitor node (started by
+  `start_web_server/1`). It tails new SQLite rows every ~500ms and re-broadcasts
+  them onto the in-node PubSub topics, so the existing `SwarmChannel` pushes them
+  to WS clients live — **no clustering required**. Latency ≈ the poll interval
+  (set `config :genswarm, :event_relay, false` to disable).
+- A WS client gets recent history from the **snapshot on subscribe** (also read
+  from SQLite) and the live tail from the relay.
+
+> Run the relay only on a monitor node that does **not** host swarms in-process.
+> There the in-node `LogStore` never broadcasts swarm events (they happen in the
+> daemons), so the relay is the sole live source — no double-delivery.
+
+### Still node-local (known limits)
+
+- **Live process-state pulls** (`GET /objects/:name`, `/agents/:name`) call into
+  the in-node `Registry`, so they only reach swarms in the **same** BEAM. For
+  daemon swarms, rely on the event stream (and `GET /swarms/:name`, which has a
+  SQLite fallback) instead of synchronous state pulls.
+- **Object internal state** changes don't emit events (only object lifecycle
+  does), so a live object-state feed isn't available — poll `GET /objects/:name`
+  in a co-located setup, or have the object emit on change.
+- Want true sub-second push or cross-host fan-out without polling? Swap
+  `Phoenix.PubSub` to its **Redis adapter** — the single spine means only the
+  transport changes, not the emitters, bridge, or channel.
+
 ## Building a dashboard
 
 A dashboard is a **consumer**, not framework code (the project is API-first and

@@ -87,7 +87,25 @@ defmodule Genswarm.Application do
       Application.put_env(:genswarm, GenswarmWeb.Endpoint, updated_config)
 
       # Start endpoint under the supervisor
-      Supervisor.start_child(Genswarm.Supervisor, GenswarmWeb.Endpoint)
+      result = Supervisor.start_child(Genswarm.Supervisor, GenswarmWeb.Endpoint)
+
+      # The event relay tails the shared SQLite log and re-broadcasts new events
+      # to WS clients, so this node sees events from daemon swarms in other BEAMs.
+      # Runs only here (the monitor/API node), never in daemons.
+      maybe_start_event_relay()
+
+      result
+    end
+  end
+
+  defp maybe_start_event_relay do
+    if Application.get_env(:genswarm, :event_relay, true) do
+      case Supervisor.start_child(Genswarm.Supervisor, Genswarm.Observability.EventRelay) do
+        {:ok, _} -> :ok
+        {:error, {:already_started, _}} -> :ok
+        {:error, :already_present} -> :ok
+        _ -> :ok
+      end
     end
   end
 
@@ -97,6 +115,9 @@ defmodule Genswarm.Application do
   @spec stop_web_server() :: :ok | {:error, term()}
   def stop_web_server do
     if web_server_running?() do
+      Supervisor.terminate_child(Genswarm.Supervisor, Genswarm.Observability.EventRelay)
+      Supervisor.delete_child(Genswarm.Supervisor, Genswarm.Observability.EventRelay)
+
       case Supervisor.terminate_child(Genswarm.Supervisor, GenswarmWeb.Endpoint) do
         :ok ->
           Supervisor.delete_child(Genswarm.Supervisor, GenswarmWeb.Endpoint)

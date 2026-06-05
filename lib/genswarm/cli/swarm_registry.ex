@@ -456,6 +456,50 @@ defmodule Genswarm.CLI.SwarmRegistry do
   end
 
   @doc """
+  Returns events with `id` strictly greater than `since_id`, oldest first.
+
+  Used by the EventRelay to tail newly-persisted events across processes
+  (every swarm — in-process or daemon — writes here via LogStore).
+  """
+  def events_since(since_id, limit \\ 500) do
+    ensure_db_exists()
+    {:ok, db} = open_db()
+
+    {:ok, stmt} =
+      Exqlite.Sqlite3.prepare(db, """
+        SELECT id, timestamp, level, category, swarm, agent, event_type, message, metadata
+        FROM events
+        WHERE id > ?
+        ORDER BY id ASC
+        LIMIT ?
+      """)
+
+    Exqlite.Sqlite3.bind(stmt, [since_id, limit])
+    events = collect_event_rows(db, stmt, [])
+
+    Exqlite.Sqlite3.release(db, stmt)
+    Exqlite.Sqlite3.close(db)
+    events
+  end
+
+  @doc "Highest event id currently persisted (0 if none)."
+  def max_event_id do
+    ensure_db_exists()
+    {:ok, db} = open_db()
+    {:ok, stmt} = Exqlite.Sqlite3.prepare(db, "SELECT COALESCE(MAX(id), 0) FROM events")
+
+    result =
+      case Exqlite.Sqlite3.step(db, stmt) do
+        {:row, [max_id]} -> max_id
+        _ -> 0
+      end
+
+    Exqlite.Sqlite3.release(db, stmt)
+    Exqlite.Sqlite3.close(db)
+    result
+  end
+
+  @doc """
   Checks if a process is alive by PID.
   """
   def process_alive?(nil), do: false
@@ -564,10 +608,14 @@ defmodule Genswarm.CLI.SwarmRegistry do
 
     result =
       case Exqlite.Sqlite3.step(db, stmt) do
-        {:row, [status, nil]} -> {String.to_atom(status), nil}
+        {:row, [status, nil]} ->
+          {String.to_atom(status), nil}
+
         {:row, [status, result_json]} ->
           {String.to_atom(status), result_json |> Jason.decode!() |> decode_overlay_value()}
-        :done -> nil
+
+        :done ->
+          nil
       end
 
     Exqlite.Sqlite3.release(db, stmt)

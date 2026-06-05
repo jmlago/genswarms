@@ -1,11 +1,15 @@
 defmodule GenswarmWeb.EventsController do
   @moduledoc """
-  REST API controller for querying events from LogStore.
+  REST API controller for querying events.
+
+  Reads from the shared SQLite event log (`SwarmRegistry`) rather than the
+  in-node `LogStore` ETS, so the API surfaces events from every swarm — including
+  daemon swarms running in other BEAM nodes — not just in-process ones.
   """
 
   use GenswarmWeb, :controller
 
-  alias Genswarm.Observability.LogStore
+  alias Genswarm.CLI.SwarmRegistry
 
   @doc """
   Lists events with optional filtering.
@@ -22,7 +26,7 @@ defmodule GenswarmWeb.EventsController do
   """
   def index(conn, params) do
     query_opts = build_query_opts(params)
-    events = LogStore.query(query_opts)
+    events = SwarmRegistry.query_events(query_opts)
 
     json(conn, %{
       events: Enum.map(events, &format_event/1),
@@ -42,7 +46,7 @@ defmodule GenswarmWeb.EventsController do
       |> Map.put("swarm", swarm_name)
       |> build_query_opts()
 
-    events = LogStore.query(query_opts)
+    events = SwarmRegistry.query_events(query_opts)
 
     json(conn, %{
       events: Enum.map(events, &format_event/1),
@@ -63,7 +67,7 @@ defmodule GenswarmWeb.EventsController do
       |> Map.put("agent", agent_name)
       |> build_query_opts()
 
-    events = LogStore.query(query_opts)
+    events = SwarmRegistry.query_events(query_opts)
 
     json(conn, %{
       events: Enum.map(events, &format_event/1),
@@ -138,7 +142,7 @@ defmodule GenswarmWeb.EventsController do
   defp format_event(event) do
     %{
       id: event.id,
-      timestamp: DateTime.to_iso8601(event.timestamp),
+      timestamp: format_timestamp(event.timestamp),
       level: event.level,
       category: event.category,
       swarm: event.swarm,
@@ -148,4 +152,9 @@ defmodule GenswarmWeb.EventsController do
       metadata: event.metadata
     }
   end
+
+  # SQLite timestamps come back as strings; in-node ones are DateTime structs.
+  defp format_timestamp(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
+  defp format_timestamp(ts) when is_binary(ts), do: ts
+  defp format_timestamp(ts), do: inspect(ts)
 end
