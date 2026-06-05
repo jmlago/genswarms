@@ -13,14 +13,16 @@ defmodule GenswarmWeb.SwarmChannel do
 
   alias Genswarm.SwarmManager
   alias Genswarm.CLI.SwarmRegistry
-  alias Genswarm.Observability.LogStore
+  alias Genswarm.Observability.EventStore
 
   @impl true
   def join("swarm:" <> swarm_name, _params, socket) do
     # Verify swarm exists (check in-process and SQLite)
     swarm_exists =
       case SwarmManager.status(swarm_name) do
-        {:ok, _status} -> true
+        {:ok, _status} ->
+          true
+
         {:error, :not_found} ->
           case SwarmRegistry.get_swarm(swarm_name) do
             {:ok, _} -> true
@@ -33,6 +35,7 @@ defmodule GenswarmWeb.SwarmChannel do
       Phoenix.PubSub.subscribe(Genswarm.PubSub, "swarm:#{swarm_name}")
       Phoenix.PubSub.subscribe(Genswarm.PubSub, "swarm:#{swarm_name}:output")
       Phoenix.PubSub.subscribe(Genswarm.PubSub, "swarm:#{swarm_name}:routing")
+      Phoenix.PubSub.subscribe(Genswarm.PubSub, "swarm:#{swarm_name}:status")
 
       socket =
         socket
@@ -92,12 +95,13 @@ defmodule GenswarmWeb.SwarmChannel do
     log_subs = MapSet.put(socket.assigns.log_subscriptions, {agent, topic})
     socket = assign(socket, :log_subscriptions, log_subs)
 
-    # Send recent logs as initial data
+    # Send recent logs as initial data (from the shared store, so daemon swarms
+    # in other BEAMs are visible too — the live stream then arrives via EventRelay).
     recent_logs =
       if agent do
-        LogStore.query(swarm: swarm_name, agent: String.to_atom(agent), limit: 50)
+        EventStore.query(swarm: swarm_name, agent: String.to_atom(agent), limit: 50)
       else
-        LogStore.query(swarm: swarm_name, limit: 50)
+        EventStore.query(swarm: swarm_name, limit: 50)
       end
       |> Enum.map(&format_log_entry/1)
       |> Enum.reverse()
@@ -147,7 +151,7 @@ defmodule GenswarmWeb.SwarmChannel do
       |> maybe_add_filter(filters, "event_type", :event_type)
 
     recent_events =
-      LogStore.query(query_opts)
+      EventStore.query(query_opts)
       |> Enum.map(&format_event/1)
       |> Enum.reverse()
 
@@ -184,6 +188,11 @@ defmodule GenswarmWeb.SwarmChannel do
 
   def handle_info({:agent_status, agent, state}, socket) do
     push(socket, "agent_status", %{agent: agent, state: state})
+    {:noreply, socket}
+  end
+
+  def handle_info({:swarm_started, _name, status}, socket) do
+    push(socket, "swarm_started", %{status: to_string(status)})
     {:noreply, socket}
   end
 
@@ -302,6 +311,9 @@ defmodule GenswarmWeb.SwarmChannel do
   defp serialize_spec_value(v) when is_atom(v) and v not in [nil, true, false], do: to_string(v)
   defp serialize_spec_value(v) when is_list(v), do: Enum.map(v, &serialize_spec_value/1)
   defp serialize_spec_value(v) when is_map(v), do: serialize_spec(v)
-  defp serialize_spec_value(v) when is_tuple(v), do: v |> Tuple.to_list() |> Enum.map(&serialize_spec_value/1)
+
+  defp serialize_spec_value(v) when is_tuple(v),
+    do: v |> Tuple.to_list() |> Enum.map(&serialize_spec_value/1)
+
   defp serialize_spec_value(v), do: v
 end

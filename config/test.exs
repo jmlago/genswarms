@@ -9,5 +9,8 @@ config :genswarm, GenswarmWeb.Endpoint,
 # Print only warnings and errors during test
 config :logger, level: :warning
 
+# Use synchronous writes in tests so persist→query is deterministic (no buffering).
+config :genswarm, :event_store, Genswarm.Observability.EventStore.Sqlite
+
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime

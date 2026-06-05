@@ -23,6 +23,16 @@ config :logger, :console,
 # Use Jason for JSON parsing
 config :phoenix, :json_library, Jason
 
+# Durable cross-process event store backend (see Genswarm.Observability.EventStore).
+# Default: batch writes every 100ms (one transaction per flush) on top of SQLite.
+# Swap the inner backend to Postgres/Redis here as load grows.
+config :genswarm, :event_store, Genswarm.Observability.EventStore.Buffered
+
+config :genswarm, Genswarm.Observability.EventStore.Buffered,
+  inner: Genswarm.Observability.EventStore.Sqlite,
+  interval_ms: 100,
+  max_buffer: 1_000
+
 # Genswarm specific configuration
 config :genswarm,
   # Default path to subzeroclaw binary

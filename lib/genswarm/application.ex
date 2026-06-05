@@ -41,8 +41,19 @@ defmodule Genswarm.Application do
       # Note: Phoenix endpoint is optional, started via `swarm dashboard`
     ]
 
+    # Any processes the configured EventStore backend needs (none for the
+    # stateless SQLite default; a batching/pooled/Redis backend would add a
+    # buffer or pool here).
+    children = children ++ Genswarm.Observability.EventStore.child_specs()
+
     opts = [strategy: :one_for_one, name: Genswarm.Supervisor]
-    Supervisor.start_link(children, opts)
+    result = Supervisor.start_link(children, opts)
+
+    # Bridge the telemetry event stream into LogStore (durable + queryable +
+    # streamed over WS). Attached after the tree is up so LogStore is alive.
+    Genswarm.Observability.TelemetryBridge.attach()
+
+    result
   end
 
   @impl true
@@ -81,7 +92,25 @@ defmodule Genswarm.Application do
       Application.put_env(:genswarm, GenswarmWeb.Endpoint, updated_config)
 
       # Start endpoint under the supervisor
-      Supervisor.start_child(Genswarm.Supervisor, GenswarmWeb.Endpoint)
+      result = Supervisor.start_child(Genswarm.Supervisor, GenswarmWeb.Endpoint)
+
+      # The event relay tails the shared SQLite log and re-broadcasts new events
+      # to WS clients, so this node sees events from daemon swarms in other BEAMs.
+      # Runs only here (the monitor/API node), never in daemons.
+      maybe_start_event_relay()
+
+      result
+    end
+  end
+
+  defp maybe_start_event_relay do
+    if Application.get_env(:genswarm, :event_relay, true) do
+      case Supervisor.start_child(Genswarm.Supervisor, Genswarm.Observability.EventRelay) do
+        {:ok, _} -> :ok
+        {:error, {:already_started, _}} -> :ok
+        {:error, :already_present} -> :ok
+        _ -> :ok
+      end
     end
   end
 
@@ -91,6 +120,9 @@ defmodule Genswarm.Application do
   @spec stop_web_server() :: :ok | {:error, term()}
   def stop_web_server do
     if web_server_running?() do
+      Supervisor.terminate_child(Genswarm.Supervisor, Genswarm.Observability.EventRelay)
+      Supervisor.delete_child(Genswarm.Supervisor, Genswarm.Observability.EventRelay)
+
       case Supervisor.terminate_child(Genswarm.Supervisor, GenswarmWeb.Endpoint) do
         :ok ->
           Supervisor.delete_child(Genswarm.Supervisor, GenswarmWeb.Endpoint)
