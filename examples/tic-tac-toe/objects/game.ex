@@ -3,9 +3,9 @@ defmodule TicTacToe.Objects.Game do
   Tic-tac-toe game object. Validates moves and manages turns between two agents.
   """
 
-  @behaviour Genswarm.Objects.ObjectHandler
+  @behaviour Genswarms.Objects.ObjectHandler
 
-  alias Genswarm.Objects.ObjectServer
+  alias Genswarms.Objects.ObjectServer
 
   # Swarm name for logging - set during init
   @swarm_name "tic-tac-toe"

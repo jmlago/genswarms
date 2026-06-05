@@ -1,4 +1,4 @@
-# Tool presets for Genswarm agents
+# Tool presets for Genswarms agents
 #
 # Presets group related tools together. Agents can reference
 # presets in their config or specify individual tools.

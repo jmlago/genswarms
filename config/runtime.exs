@@ -17,7 +17,7 @@ if config_env() == :prod and System.get_env("PHX_SERVER") == "true" do
   host = System.get_env("PHX_HOST") || "example.com"
   port = String.to_integer(System.get_env("PORT") || "4000")
 
-  config :genswarm, GenswarmWeb.Endpoint,
+  config :genswarms, GenswarmsWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
     http: [
       ip: {0, 0, 0, 0, 0, 0, 0, 0},
@@ -26,8 +26,8 @@ if config_env() == :prod and System.get_env("PHX_SERVER") == "true" do
     secret_key_base: secret_key_base
 end
 
-# Genswarm runtime configuration
-config :genswarm,
+# Genswarms runtime configuration
+config :genswarms,
   subzeroclaw_path: System.get_env("SUBZEROCLAW_PATH", "subzeroclaw"),
   swarm_data_dir: System.get_env("SWARM_DATA_DIR", "~/.subzeroclaw/swarms"),
   skills_dir: System.get_env("SKILLS_DIR", "priv/skills")

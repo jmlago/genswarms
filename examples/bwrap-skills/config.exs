@@ -1,7 +1,7 @@
 # Bwrap Skills Test - Verify skills are loaded in bwrap sandbox
 #
-# Usage: mix swarm.start examples/bwrap-skills/config.exs
-#        mix swarm.task bwrap-skills agent_1 "What is the secret number?"
+# Usage: mix genswarms.start examples/bwrap-skills/config.exs
+#        mix genswarms.task bwrap-skills agent_1 "What is the secret number?"
 
 %{
   name: "bwrap-skills",

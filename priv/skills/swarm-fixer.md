@@ -7,7 +7,7 @@ You are a swarm diagnostician and fixer. Your job is to diagnose issues with run
 ### Step 1: Check Swarm Status
 
 ```bash
-mix swarm.status
+mix genswarms.status
 ```
 
 This shows all swarms with their status (running/stopped/crashed), PID, and start time.
@@ -16,16 +16,16 @@ This shows all swarms with their status (running/stopped/crashed), PID, and star
 
 ```bash
 # All events from last 5 minutes
-mix swarm.events -s <swarm-name> -n 5
+mix genswarms.events -s <swarm-name> -n 5
 
 # Errors only
-mix swarm.events -s <swarm-name> --errors
+mix genswarms.events -s <swarm-name> --errors
 
 # Filter by specific agent
-mix swarm.events -s <swarm-name> -a <agent-name>
+mix genswarms.events -s <swarm-name> -a <agent-name>
 
 # More events (default is 50)
-mix swarm.events -s <swarm-name> --limit 100
+mix genswarms.events -s <swarm-name> --limit 100
 ```
 
 ### Step 3: Identify Patterns
@@ -53,7 +53,7 @@ Look for these common issues in the event logs:
 
 **Diagnosis:**
 ```bash
-mix swarm.events -s <swarm> -n 10
+mix genswarms.events -s <swarm> -n 10
 # Look for: only startup events, no agent activity
 ```
 
@@ -71,7 +71,7 @@ mix swarm.events -s <swarm> -n 10
 
 **Diagnosis:**
 ```bash
-mix swarm.events -s <swarm> -a <agent> --errors
+mix genswarms.events -s <swarm> -a <agent> --errors
 # Look for: same error repeating, agent responding to errors
 ```
 
@@ -94,7 +94,7 @@ If you receive `{"status": "error", ...}`:
 
 **Diagnosis:**
 ```bash
-mix swarm.events -s <swarm> -a <agent> --limit 30
+mix genswarms.events -s <swarm> -a <agent> --limit 30
 # Compare: data in tool_call vs data in previous user_message
 ```
 
@@ -115,7 +115,7 @@ The message content is the source of truth.
 
 **Diagnosis:**
 ```bash
-mix swarm.events -s <swarm> -n 5
+mix genswarms.events -s <swarm> -n 5
 # Look for: overlapping actions, agents not waiting
 ```
 
@@ -137,7 +137,7 @@ mix swarm.events -s <swarm> -n 5
 
 **Diagnosis:**
 ```bash
-mix swarm.events -s <swarm> -a <agent> | grep -i "tool_call\|error"
+mix genswarms.events -s <swarm> -a <agent> | grep -i "tool_call\|error"
 # Look for: malformed JSON in tool calls
 ```
 
@@ -160,7 +160,7 @@ Example of CORRECT format:
 
 **Diagnosis:**
 ```bash
-mix swarm.events -s <swarm> -a <agent>
+mix genswarms.events -s <swarm> -a <agent>
 # Look for: assistant_response with non-action content
 ```
 
@@ -177,18 +177,18 @@ mix swarm.events -s <swarm> -a <agent>
 
 ```bash
 # Swarm lifecycle
-mix swarm.status                    # List all swarms
-mix swarm.start <config.exs>        # Start a swarm
-mix swarm.stop <name>               # Stop a swarm
+mix genswarms.status                    # List all swarms
+mix genswarms.start <config.exs>        # Start a swarm
+mix genswarms.stop <name>               # Stop a swarm
 
 # Event queries
-mix swarm.events                    # Recent events (all swarms)
-mix swarm.events -s <swarm>         # Filter by swarm
-mix swarm.events -a <agent>         # Filter by agent
-mix swarm.events -n <minutes>       # Filter by time
-mix swarm.events --errors           # Errors only
-mix swarm.events --limit <n>        # Number of events
-mix swarm.events --category backend # Filter by category
+mix genswarms.events                    # Recent events (all swarms)
+mix genswarms.events -s <swarm>         # Filter by swarm
+mix genswarms.events -a <agent>         # Filter by agent
+mix genswarms.events -n <minutes>       # Filter by time
+mix genswarms.events --errors           # Errors only
+mix genswarms.events --limit <n>        # Number of events
+mix genswarms.events --category backend # Filter by category
 
 # Container status (for Docker backends)
 docker ps --filter "name=szc-"      # List swarm containers
@@ -202,9 +202,9 @@ docker logs <container>             # View container logs
 3. **Fix**: Update with explicit rules addressing the issue
 4. **Restart**: Stop the swarm, clean up state if needed, restart
    ```bash
-   mix swarm.stop <name>
+   mix genswarms.stop <name>
    rm -rf ~/.subzeroclaw/swarms/<name>  # Optional: clean state
-   mix swarm.start <config.exs>
+   mix genswarms.start <config.exs>
    ```
 5. **Verify**: Check events to confirm the fix worked
 

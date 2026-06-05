@@ -22,7 +22,7 @@ erl_crash.dump.*
 *.coverdata
 
 # Escript binary
-/swarm
+/genswarms
 
 # Environment files
 .env
@@ -53,7 +53,7 @@ Thumbs.db
 
 # Swarm data (runtime)
 /swarms
-/.swarm
+/.genswarms
 
 # Release artifacts
 /rel

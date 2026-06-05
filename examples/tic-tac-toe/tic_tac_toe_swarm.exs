@@ -6,7 +6,7 @@
 # Topology:
 #   player_x <-> game <-> player_o
 #
-# To start: mix swarm.start examples/tic-tac-toe/tic_tac_toe_swarm.exs
+# To start: mix genswarms.start examples/tic-tac-toe/tic_tac_toe_swarm.exs
 
 # Load the game object handler (only compiles if not already loaded)
 Code.require_file("objects/game.ex", __DIR__)

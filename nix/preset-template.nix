@@ -14,12 +14,12 @@
 #   end
 #
 # Or register the directory for preset lookup:
-#   Application.put_env(:genswarm, :extra_preset_dirs, ["./presets"])
+#   Application.put_env(:genswarms, :extra_preset_dirs, ["./presets"])
 #   # Then symlink: ln -sf $(readlink result) ./presets/solidity
 
 { pkgs ? import <nixpkgs> {}
 , subzeroSwarmSrc ? builtins.fetchGit {
-    url = "https://github.com/subzeroclaw/genswarm";
+    url = "https://github.com/subzeroclaw/genswarms";
     ref = "main";
   }
 }:
@@ -33,7 +33,7 @@ sandboxLib.mkSandboxBase {
   # Preset name (used for /run/swarm/sandbox-base/<name>)
   name = "my-custom-preset";
 
-  # Base presets to include from genswarm
+  # Base presets to include from genswarms
   # Available: base, web, code, python, node, data, docs, network, security, ai
   presets = [ "base" "code" ];
 

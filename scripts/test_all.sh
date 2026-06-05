@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Run all Genswarm tests
+# Run all Genswarms tests
 #
 # Usage: ./scripts/test_all.sh [cli|api]
 #
@@ -17,7 +17,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo -e "${YELLOW}============================================${NC}"
-echo -e "${YELLOW}Genswarm Full Test Suite${NC}"
+echo -e "${YELLOW}Genswarms Full Test Suite${NC}"
 echo -e "${YELLOW}============================================${NC}"
 
 if [ "$1" = "cli" ]; then

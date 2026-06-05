@@ -9,10 +9,10 @@ defmodule Bridge.Objects.Bridge do
   Latency: ~500ms (daemon poll interval)
   """
 
-  @behaviour Genswarm.Objects.ObjectHandler
+  @behaviour Genswarms.Objects.ObjectHandler
 
-  alias Genswarm.CLI.SwarmRegistry
-  alias Genswarm.Objects.ObjectServer
+  alias Genswarms.CLI.SwarmRegistry
+  alias Genswarms.Objects.ObjectServer
 
   @impl true
   def init(config) do

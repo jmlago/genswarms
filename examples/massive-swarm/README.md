@@ -16,18 +16,18 @@ Scale testing with the bwrap backend for 100-10k+ agents on a single NixOS machi
 ### 100 Agents (Quick Test)
 
 ```bash
-mix swarm.start examples/massive-swarm/100_agents.exs
-mix swarm.status massive-100
-mix swarm.task massive-100 agent_50 "hello"
-mix swarm.stop massive-100
+mix genswarms.start examples/massive-swarm/100_agents.exs
+mix genswarms.status massive-100
+mix genswarms.task massive-100 agent_50 "hello"
+mix genswarms.stop massive-100
 ```
 
 ### 1000 Agents (Medium Scale)
 
 ```bash
-mix swarm.start examples/massive-swarm/1000_agents.exs
-mix swarm.status massive-1000
-mix swarm.stop massive-1000
+mix genswarms.start examples/massive-swarm/1000_agents.exs
+mix genswarms.status massive-1000
+mix genswarms.stop massive-1000
 ```
 
 ### 10000 Agents (Full Scale)
@@ -38,9 +38,9 @@ Requires NixOS system configuration from `nix/bwrap-module.nix`:
 - tmpfs at /run/swarm with sufficient size
 
 ```bash
-mix swarm.start examples/massive-swarm/10000_agents.exs
-mix swarm.status massive-10000
-mix swarm.stop massive-10000
+mix genswarms.start examples/massive-swarm/10000_agents.exs
+mix genswarms.status massive-10000
+mix genswarms.stop massive-10000
 ```
 
 ## Resource Usage

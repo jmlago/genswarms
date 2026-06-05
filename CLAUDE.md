@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Genswarm is an Elixir/OTP orchestrator for managing swarms of AI agents with pluggable backends (Local/Docker/SSH/Bwrap/Mock), arbitrary directed graph topologies, per-agent skills with template variable resolution, file-based messaging (inbox/outbox), and fault tolerance via OTP supervision trees.
+Genswarms is an Elixir/OTP orchestrator for managing swarms of AI agents with pluggable backends (Local/Docker/SSH/Bwrap/Mock), arbitrary directed graph topologies, per-agent skills with template variable resolution, file-based messaging (inbox/outbox), and fault tolerance via OTP supervision trees.
+
+Full user/developer documentation lives in [`docs/`](docs/README.md) (configuration DSL, CLI, REST/WebSocket APIs, backends, observability, etc.). This file is the quick-reference for working in the codebase.
 
 ## Build & Development Commands
 
@@ -15,7 +17,7 @@ nix develop
 # Install dependencies
 mix deps.get
 
-# Build CLI escript (creates ./swarm binary)
+# Build CLI escript (creates ./genswarms binary)
 mix escript.build
 
 # Run tests
@@ -25,14 +27,11 @@ mix test --cover
 # Format code
 mix format
 
-# Static analysis
-mix credo
-
 # Start Phoenix API server (development)
 mix phx.server
 
 # Run a single test file
-mix test test/genswarm/routing/router_test.exs
+mix test test/genswarms/routing/router_test.exs
 
 # Run tests matching pattern
 mix test --only tag_name
@@ -53,41 +52,41 @@ docker load < result              # Load into Docker
 
 ```bash
 # Server
-swarm up                          # Start Phoenix API server
-swarm down                        # Stop everything
+genswarms up                          # Start Phoenix API server
+genswarms down                        # Stop everything
 
 # Swarm Management
-swarm start <config.exs>          # Start swarm as daemon (background process)
-swarm stop <name>                 # Stop swarm
-swarm restart <name>              # Restart swarm
-swarm restart <name> --delete     # Restart with clean slate (delete old data)
-swarm pause <name>                # Pause swarm (freeze containers)
-swarm resume <name>               # Resume paused swarm
-swarm status [name]               # Show status
-swarm delete <name>               # Delete swarm and all its data
-swarm clean                       # Clean up stopped/crashed swarms
-swarm clean --all                 # Also clear all events
+genswarms start <config.exs>          # Start swarm as daemon (background process)
+genswarms stop <name>                 # Stop swarm
+genswarms restart <name>              # Restart swarm
+genswarms restart <name> --delete     # Restart with clean slate (delete old data)
+genswarms pause <name>                # Pause swarm (freeze containers)
+genswarms resume <name>               # Resume paused swarm
+genswarms status [name]               # Show status
+genswarms delete <name>               # Delete swarm and all its data
+genswarms clean                       # Clean up stopped/crashed swarms
+genswarms clean --all                 # Also clear all events
 
 # Agent Operations
-swarm logs [swarm] [agent]        # Stream logs
-swarm task <swarm> <agent> <msg>  # Send task to agent
+genswarms logs [swarm] [agent]        # Stream logs
+genswarms task <swarm> <agent> <msg>  # Send task to agent
 
 # Observability
-swarm events                      # View recent events
-swarm events --errors             # Filter error events
-swarm events -s <swarm>           # Filter by swarm
-swarm events --follow             # Stream in real-time
+genswarms events                      # View recent events
+genswarms events --errors             # Filter error events
+genswarms events -s <swarm>           # Filter by swarm
+genswarms events --follow             # Stream in real-time
 
 # Configuration
-swarm config validate <file>      # Validate config
+genswarms config validate <file>      # Validate config
 
 # Testing
-mix swarm.test                    # Validate + run all examples
-mix swarm.test --validate-only    # Only validate configs
-mix swarm.test --mock script.json # Run with mock backend (no LLM)
-mix swarm.test --example name     # Test a specific example
-mix swarm.test --timeout 60000    # Custom timeout (ms)
-mix swarm.test --steps 3          # Steps for .sim examples
+mix genswarms.test                    # Validate + run all examples
+mix genswarms.test --validate-only    # Only validate configs
+mix genswarms.test --mock script.json # Run with mock backend (no LLM)
+mix genswarms.test --example name     # Test a specific example
+mix genswarms.test --timeout 60000    # Custom timeout (ms)
+mix genswarms.test --steps 3          # Steps for .sim examples
 ```
 
 ## Architecture
@@ -129,7 +128,7 @@ External Frontend                   Phoenix API Server
         ├── HTTP ─────────────────────────►├── WebSocket (/swarm)
         │                                  └── CORS enabled
         │
-        │                           Daemon Process (swarm start)
+        │                           Daemon Process (genswarms start)
         │                                  │
         └── (optional) ───────────────────►├── SwarmManager
                                            ├── Agents/Containers
@@ -141,7 +140,7 @@ External Frontend                   Phoenix API Server
 Swarms run as independent OS processes (daemons), separate from the API server:
 
 ```
-API Server (Phoenix)                 Daemon Process (swarm start)
+API Server (Phoenix)                 Daemon Process (genswarms start)
         │                                      │
         ├── REST API                           ├── SwarmManager
         ├── WebSocket                          ├── Agents/Containers
@@ -159,24 +158,24 @@ API Server (Phoenix)                 Daemon Process (swarm start)
 
 | Module | Location | Purpose |
 |--------|----------|---------|
-| `Genswarm` | `lib/genswarm.ex` | Main public API |
-| `SwarmManager` | `lib/genswarm/swarm_manager.ex` | Swarm lifecycle orchestration |
-| `Router` | `lib/genswarm/routing/router.ex` | Message routing via topology adjacency map |
-| `AgentServer` | `lib/genswarm/agents/agent_server.ex` | Individual agent lifecycle |
-| `AgentProtocol` | `lib/genswarm/agents/agent_protocol.ex` | Parses `@agent:` message syntax |
-| `LocalBackend` | `lib/genswarm/backends/local_backend.ex` | Elixir Port subprocess |
-| `DockerBackend` | `lib/genswarm/backends/docker_backend.ex` | Docker container management |
-| `SSHBackend` | `lib/genswarm/backends/ssh_backend.ex` | SSH remote execution |
-| `ObjectHandler` | `lib/genswarm/objects/object_handler.ex` | Behaviour for custom objects |
-| `ObjectServer` | `lib/genswarm/objects/object_server.ex` | GenServer wrapper for object handlers (supports :send_many) |
-| `LogWatcher` | `lib/genswarm/agents/log_watcher.ex` | Polls agent logs + .outbox/ for message routing |
-| `BwrapBackend` | `lib/genswarm/backends/bwrap_backend.ex` | Bubblewrap sandbox backend |
-| `Loader` | `lib/genswarm/config/loader.ex` | Loads .exs/.json/.yaml configs |
-| `CLI` | `lib/genswarm/cli/cli.ex` | Main escript entry point |
-| `SwarmRegistry` | `lib/genswarm/cli/swarm_registry.ex` | SQLite-backed cross-process state & task queue |
-| `LogStore` | `lib/genswarm/observability/log_store.ex` | Centralized ETS-backed event logging |
-| `SwarmController` | `lib/genswarm_web/controllers/swarm_controller.ex` | REST API for swarm management |
-| `SwarmChannel` | `lib/genswarm_web/channels/swarm_channel.ex` | WebSocket for real-time events |
+| `Genswarms` | `lib/genswarms.ex` | Main public API |
+| `SwarmManager` | `lib/genswarms/swarm_manager.ex` | Swarm lifecycle orchestration |
+| `Router` | `lib/genswarms/routing/router.ex` | Message routing via topology adjacency map |
+| `AgentServer` | `lib/genswarms/agents/agent_server.ex` | Individual agent lifecycle |
+| `AgentProtocol` | `lib/genswarms/agents/agent_protocol.ex` | Parses `@agent:` message syntax |
+| `LocalBackend` | `lib/genswarms/backends/local_backend.ex` | Elixir Port subprocess |
+| `DockerBackend` | `lib/genswarms/backends/docker_backend.ex` | Docker container management |
+| `SSHBackend` | `lib/genswarms/backends/ssh_backend.ex` | SSH remote execution |
+| `ObjectHandler` | `lib/genswarms/objects/object_handler.ex` | Behaviour for custom objects |
+| `ObjectServer` | `lib/genswarms/objects/object_server.ex` | GenServer wrapper for object handlers (supports :send_many) |
+| `LogWatcher` | `lib/genswarms/agents/log_watcher.ex` | Polls agent logs + .outbox/ for message routing |
+| `BwrapBackend` | `lib/genswarms/backends/bwrap_backend.ex` | Bubblewrap sandbox backend |
+| `Loader` | `lib/genswarms/config/loader.ex` | Loads .exs/.json/.yaml configs |
+| `CLI` | `lib/genswarms/cli/cli.ex` | Main escript entry point |
+| `SwarmRegistry` | `lib/genswarms/cli/swarm_registry.ex` | SQLite-backed cross-process state & task queue |
+| `LogStore` | `lib/genswarms/observability/log_store.ex` | Centralized ETS-backed event logging |
+| `SwarmController` | `lib/genswarms_web/controllers/swarm_controller.ex` | REST API for swarm management |
+| `SwarmChannel` | `lib/genswarms_web/channels/swarm_channel.ex` | WebSocket for real-time events |
 
 ### Inter-Agent Communication
 
@@ -306,8 +305,11 @@ Skills support template variables resolved at deploy time:
 
 ### Per-Agent Workspaces
 
-When `count: N` is used, workspace path is auto-appended with agent name:
-- `agent :fixer, count: 20` with `workspace: "/tmp/ws"` gives `fixer_1` the path `/tmp/ws/fixer_1/`
+There is no config-time `count:` key — an agent definition maps to one agent.
+To run a pool, scale the group at runtime (`genswarms scale <swarm> <base> <n>`
+or `SwarmManager.scale_agent_group/4`). Scaling creates `base_1`, `base_2`, …
+and each replica's `workspace` is renamed accordingly (suffix-replaced if it
+already ends in the template name, otherwise the replica name is appended).
 
 ## Environment Variables
 
@@ -323,11 +325,11 @@ When `count: N` is used, workspace path is auto-appended with agent name:
 
 ## Test Files
 
-- `test/genswarm/agents/agent_protocol_test.exs` - Message parsing
-- `test/genswarm/routing/router_test.exs` - Message routing (including system object routing)
-- `test/genswarm/config/loader_test.exs` - Config loading
-- `test/genswarm/config/swarm_config_test.exs` - Config validation
-- `test/genswarm/agents/inbox_test.exs` - Message queue
+- `test/genswarms/agents/agent_protocol_test.exs` - Message parsing
+- `test/genswarms/routing/router_test.exs` - Message routing (including system object routing)
+- `test/genswarms/config/loader_test.exs` - Config loading
+- `test/genswarms/config/swarm_config_test.exs` - Config validation
+- `test/genswarms/agents/inbox_test.exs` - Message queue
 - `lib/mix/tasks/swarm/test.ex` - E2E test task implementation
 
 ### Binary Path Resolution
@@ -350,7 +352,7 @@ Objects are Elixir modules implementing `ObjectHandler` behaviour. They particip
 
 ```elixir
 defmodule MyApp.Objects.MyHandler do
-  @behaviour Genswarm.Objects.ObjectHandler
+  @behaviour Genswarms.Objects.ObjectHandler
 
   @impl true
   def init(config), do: {:ok, %{}}
@@ -380,14 +382,14 @@ Objects can return `{:send_many, [{target, msg}], state}` from `handle_message/3
 
 ### Mock Backend for Testing
 
-Use `backend: :mock` (or `{:mock, %{script: [...]}}`) to test without LLM calls. Pattern-matches incoming messages and returns canned responses. The `SUBZEROCLAW_MOCK_SCRIPT` env var is passed through to bwrap sandboxes.
+Use `backend: :mock` to test orchestration without LLM calls. The `:mock` backend is a no-op stub: it spawns no process and produces no output (an optional `%{script: [...]}` is stored for introspection only — it does not generate responses). To run *real* agents without an LLM, set `SUBZEROCLAW_MOCK_SCRIPT` (passed through to sandboxes) so subzeroclaw returns canned responses.
 
-### E2E Testing (`mix swarm.test`)
+### E2E Testing (`mix genswarms.test`)
 
 ```bash
-mix swarm.test                    # Validate + run all examples
-mix swarm.test --validate-only    # Only validate configs
-mix swarm.test --mock script.json # Run with mock backend
+mix genswarms.test                    # Validate + run all examples
+mix genswarms.test --validate-only    # Only validate configs
+mix genswarms.test --mock script.json # Run with mock backend
 ```
 
 Logs saved to `.test-logs/`. Exit code 0 if all pass, 1 if any fail.
@@ -398,7 +400,7 @@ The API server and CLI communicate with daemon swarms via SQLite:
 
 ### SwarmRegistry (SQLite)
 
-Location: `.swarm/swarms.db` (project directory)
+Location: `.genswarms/swarms.db` (project directory)
 
 Tables:
 - `swarms` - Running swarm state (name, pid, config_path, status, started_at)
@@ -427,5 +429,5 @@ Since `SwarmManager.pause/1` requires GenServer access, daemon swarms use Docker
 - `swarm-msg` - Shell script for agent-side messaging (send, outbox, broadcast, list)
 - `nix/tool-presets.nix` - Tool/preset definitions for NixOS containers
 - `nix/container.nix` - Container builder configuration
-- `.swarm/swarms.db` - SQLite database for cross-process state
-- `.test-logs/` - E2E test output from `mix swarm.test`
+- `.genswarms/swarms.db` - SQLite database for cross-process state
+- `.test-logs/` - E2E test output from `mix genswarms.test`

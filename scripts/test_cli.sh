@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Test script for Genswarm CLI
+# Test script for Genswarms CLI
 #
 # Tests:
 # 1. Party swarm (10 agents, full mesh)
@@ -92,7 +92,7 @@ check_swarm_running() {
 # Test Setup
 # ============================================================================
 
-log_section "Genswarm CLI Test Suite"
+log_section "Genswarms CLI Test Suite"
 
 log_info "Project directory: $PROJECT_DIR"
 log_info "Cleaning up any previous state..."

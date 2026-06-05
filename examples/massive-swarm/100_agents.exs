@@ -1,6 +1,6 @@
 # 100 Agent Swarm - Quick scale test
 #
-# Usage: mix swarm.start examples/massive-swarm/100_agents.exs
+# Usage: mix genswarms.start examples/massive-swarm/100_agents.exs
 
 agents = for i <- 1..100 do
   %{

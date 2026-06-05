@@ -1,19 +1,19 @@
 # General application configuration
 import Config
 
-config :genswarm,
+config :genswarms,
   ecto_repos: [],
   generators: [timestamp_type: :utc_datetime]
 
 # Configures the endpoint
-config :genswarm, GenswarmWeb.Endpoint,
+config :genswarms, GenswarmsWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
-    formats: [json: GenswarmWeb.ErrorJSON],
+    formats: [json: GenswarmsWeb.ErrorJSON],
     layout: false
   ],
-  pubsub_server: Genswarm.PubSub
+  pubsub_server: Genswarms.PubSub
 
 # Configures Elixir's Logger
 config :logger, :console,
@@ -23,18 +23,18 @@ config :logger, :console,
 # Use Jason for JSON parsing
 config :phoenix, :json_library, Jason
 
-# Durable cross-process event store backend (see Genswarm.Observability.EventStore).
+# Durable cross-process event store backend (see Genswarms.Observability.EventStore).
 # Default: batch writes every 100ms (one transaction per flush) on top of SQLite.
 # Swap the inner backend to Postgres/Redis here as load grows.
-config :genswarm, :event_store, Genswarm.Observability.EventStore.Buffered
+config :genswarms, :event_store, Genswarms.Observability.EventStore.Buffered
 
-config :genswarm, Genswarm.Observability.EventStore.Buffered,
-  inner: Genswarm.Observability.EventStore.Sqlite,
+config :genswarms, Genswarms.Observability.EventStore.Buffered,
+  inner: Genswarms.Observability.EventStore.Sqlite,
   interval_ms: 100,
   max_buffer: 1_000
 
-# Genswarm specific configuration
-config :genswarm,
+# Genswarms specific configuration
+config :genswarms,
   # Default path to subzeroclaw binary
   subzeroclaw_path: System.get_env("SUBZEROCLAW_PATH", "subzeroclaw"),
   # Base directory for swarm data

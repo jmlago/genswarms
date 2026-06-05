@@ -4,4 +4,4 @@ import Config
 config :logger, level: :info
 
 # Runtime production configuration
-config :genswarm, GenswarmWeb.Endpoint, server: true
+config :genswarms, GenswarmsWeb.Endpoint, server: true

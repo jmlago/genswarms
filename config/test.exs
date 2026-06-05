@@ -1,7 +1,7 @@
 import Config
 
 # We don't run a server during test
-config :genswarm, GenswarmWeb.Endpoint,
+config :genswarms, GenswarmsWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "test_secret_key_base_that_is_at_least_64_bytes_long_for_testing_purposes",
   server: false
@@ -10,7 +10,7 @@ config :genswarm, GenswarmWeb.Endpoint,
 config :logger, level: :warning
 
 # Use synchronous writes in tests so persist→query is deterministic (no buffering).
-config :genswarm, :event_store, Genswarm.Observability.EventStore.Sqlite
+config :genswarms, :event_store, Genswarms.Observability.EventStore.Sqlite
 
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime

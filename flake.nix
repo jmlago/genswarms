@@ -1,5 +1,5 @@
 {
-  description = "Genswarm - Elixir/OTP orchestrator for agent swarms";
+  description = "Genswarms - Elixir/OTP orchestrator for agent swarms";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
@@ -89,7 +89,7 @@
             export HEX_HOME=$PWD/.nix-hex
             export PATH=$MIX_HOME/bin:$HEX_HOME/bin:$PATH
             export ERL_AFLAGS="-kernel shell_history enabled"
-            echo "Genswarm dev shell"
+            echo "Genswarms dev shell"
             echo ""
             echo "Commands:"
             echo "  mix deps.get && mix phx.server  # Start orchestrator"
@@ -108,7 +108,7 @@
 
           # The orchestrator Phoenix application
           orchestrator = pkgs.beamPackages.mixRelease {
-            pname = "genswarm";
+            pname = "genswarms";
             version = "0.1.0";
             src = ./.;
             mixEnv = "prod";
@@ -116,10 +116,10 @@
             mixFodDeps = mixDeps;
           };
 
-          # Standalone swarm CLI escript
+          # Standalone genswarms CLI escript
           # Uses buildMix which doesn't wrap executables
-          swarm-cli = pkgs.beamPackages.buildMix {
-            name = "swarm-cli";
+          genswarms-cli = pkgs.beamPackages.buildMix {
+            name = "genswarms-cli";
             version = "0.1.0";
             src = ./.;
 
@@ -152,14 +152,14 @@
               mkdir -p $out/bin $out/lib
 
               # Copy the raw escript
-              cp swarm $out/lib/swarm.escript
+              cp genswarms $out/lib/genswarms.escript
 
               # Create wrapper with $out expanded
-              cat > $out/bin/swarm << EOF
+              cat > $out/bin/genswarms << EOF
               #!/bin/sh
-              exec ${erlang.erlang}/bin/escript $out/lib/swarm.escript "\$@"
+              exec ${erlang.erlang}/bin/escript $out/lib/genswarms.escript "\$@"
               EOF
-              chmod +x $out/bin/swarm
+              chmod +x $out/bin/genswarms
 
               runHook postInstall
             '';
