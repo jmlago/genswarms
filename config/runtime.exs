@@ -30,4 +30,7 @@ end
 config :genswarms,
   subzeroclaw_path: System.get_env("SUBZEROCLAW_PATH", "subzeroclaw"),
   swarm_data_dir: System.get_env("SWARM_DATA_DIR", "~/.subzeroclaw/swarms"),
-  skills_dir: System.get_env("SKILLS_DIR", "priv/skills")
+  skills_dir: System.get_env("SKILLS_DIR", "priv/skills"),
+  # CORS allowlist for the API. Unset → local dev origins only; "*" → any origin;
+  # otherwise a comma-separated allowlist. See GenswarmsWeb.Cors.
+  cors_origins: System.get_env("GENSWARMS_CORS_ORIGINS")
