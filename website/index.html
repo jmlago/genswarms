@@ -327,24 +327,27 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px}
 .diff-col .diff-tag{font-size:12px;font-weight:600}
 @media(max-width:560px){.accent-word{white-space:normal}.accent-word svg{display:none}}
 
-/* ===== agent quickstart block ===== */
-.agent-start{border-bottom:1px solid var(--line);background:var(--paper)}
-.agent-start-in{display:grid;grid-template-columns:.92fr 1.08fr;gap:clamp(22px,4vw,52px);align-items:center;padding:clamp(28px,4vw,46px) 0}
-.as-eyebrow{font-family:"JetBrains Mono";font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink);margin-bottom:11px;display:flex;align-items:center;gap:9px}
-.as-eyebrow .tk{width:6px;height:6px;border-radius:50%;background:var(--accent)}
-.as-title{font-family:"Bricolage Grotesque";font-weight:700;font-size:clamp(20px,2.4vw,28px);letter-spacing:-.022em;line-height:1.08;margin-bottom:9px}
-.as-lead{font-size:14.5px;line-height:1.55;color:var(--ink-2);max-width:48ch}
-.prompt-box{display:flex;align-items:stretch;background:var(--night);border-radius:13px;overflow:hidden;box-shadow:0 24px 48px -30px rgba(16,17,20,.55),inset 0 0 0 1px rgba(255,255,255,.05)}
-.prompt-text{flex:1;font-family:"JetBrains Mono";font-size:12.5px;line-height:1.6;color:#dfe1ea;padding:16px 18px;word-break:break-word;-webkit-user-select:all;user-select:all}
+/* ===== get-started strip (humans → docs · agents → copy prompt) ===== */
+.getstarted{border-bottom:1px solid var(--line);background:var(--paper-2)}
+.gs-in{display:flex;align-items:center;gap:clamp(14px,2.4vw,24px);padding:15px 0;flex-wrap:wrap}
+.gs-eyebrow{font-family:"JetBrains Mono";font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);white-space:nowrap}
+.gs-human{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--ink);border:1px solid var(--line-2);border-radius:10px;padding:9px 15px;white-space:nowrap;background:var(--paper);transition:border-color .3s ease}
+.gs-human:hover{border-color:var(--ink)}
+.gs-human svg{transition:transform .4s var(--r-spring)}
+.gs-human:hover svg{transform:translateX(3px)}
+.gs-agent{display:flex;align-items:center;gap:11px;flex:1;min-width:300px}
+.gs-tag{font-family:"JetBrains Mono";font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);white-space:nowrap}
+.prompt-box{display:flex;align-items:stretch;flex:1;min-width:0;background:var(--night);border-radius:10px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
+.prompt-text{flex:1;min-width:0;font-family:"JetBrains Mono";font-size:12px;line-height:1.5;color:#dfe1ea;padding:11px 14px;word-break:break-word;-webkit-user-select:all;user-select:all}
 .prompt-text .u{color:#7fb0ff}
-.prompt-copy{flex:none;display:inline-flex;align-items:center;gap:8px;align-self:stretch;padding:0 18px;border:0;border-left:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#fff;font-family:"Instrument Sans",sans-serif;font-size:13.5px;font-weight:600;cursor:pointer;transition:background .3s ease}
+.prompt-copy{flex:none;display:inline-flex;align-items:center;gap:7px;align-self:stretch;padding:0 15px;border:0;border-left:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#fff;font-family:"Instrument Sans",sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:background .3s ease}
 .prompt-copy:hover{background:var(--accent)}
 .prompt-copy.copied{background:var(--ok);color:#06231a}
-.prompt-copy svg{width:14px;height:14px}
+.prompt-copy svg{width:13px;height:13px}
 .prompt-copy .pc-check{display:none}
 .prompt-copy.copied .pc-clip{display:none}
 .prompt-copy.copied .pc-check{display:inline}
-@media(max-width:760px){.agent-start-in{grid-template-columns:1fr;gap:18px}.prompt-box{flex-direction:column}.prompt-copy{border-left:0;border-top:1px solid rgba(255,255,255,.1);justify-content:center;padding:13px}}
+@media(max-width:680px){.gs-agent{min-width:100%}}
 </style>
 </head>
 <body>
@@ -403,20 +406,21 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px}
   </div>
 </header>
 
-<section class="agent-start">
-  <div class="wrap agent-start-in">
-    <div>
-      <p class="as-eyebrow"><span class="tk"></span> Start with your agent</p>
-      <h2 class="as-title">Don’t set it up by hand. Let your agent do it.</h2>
-      <p class="as-lead">GenSwarms ships a skill your coding agent can read. Paste this into Claude Code, Cursor, or any agent — it installs, configures, and launches a swarm for you.</p>
-    </div>
-    <div class="prompt-box">
-      <code class="prompt-text" id="agentPrompt">Read <span class="u">https://genswarms.com/skill.md</span> and use it to set up a production-ready agent swarm with GenSwarms.</code>
-      <button class="prompt-copy" id="promptCopy" type="button" aria-label="Copy the prompt to your clipboard">
-        <svg class="pc-clip" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5" y="5" width="9" height="9" rx="1.6"/><path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/></svg>
-        <svg class="pc-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 5"/></svg>
-        <span class="pc-lbl">Copy</span>
-      </button>
+<section class="getstarted">
+  <div class="wrap gs-in">
+    <span class="gs-eyebrow">Get started</span>
+    <a class="gs-human" href="/docs/getting-started/">For humans — read the docs
+      <svg viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 10L10 3M10 3H4M10 3V9"/></svg></a>
+    <div class="gs-agent">
+      <span class="gs-tag">For agents</span>
+      <div class="prompt-box">
+        <code class="prompt-text" id="agentPrompt">Read <span class="u">https://genswarms.com/skill.md</span> and set up a production-ready swarm.</code>
+        <button class="prompt-copy" id="promptCopy" type="button" aria-label="Copy the prompt to your clipboard">
+          <svg class="pc-clip" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5" y="5" width="9" height="9" rx="1.6"/><path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/></svg>
+          <svg class="pc-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 5"/></svg>
+          <span class="pc-lbl">Copy</span>
+        </button>
+      </div>
     </div>
   </div>
 </section>
