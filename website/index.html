@@ -326,6 +326,25 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px}
 .diff-col.them h3{color:var(--ink-3)}
 .diff-col .diff-tag{font-size:12px;font-weight:600}
 @media(max-width:560px){.accent-word{white-space:normal}.accent-word svg{display:none}}
+
+/* ===== agent quickstart block ===== */
+.agent-start{border-bottom:1px solid var(--line);background:var(--paper)}
+.agent-start-in{display:grid;grid-template-columns:.92fr 1.08fr;gap:clamp(22px,4vw,52px);align-items:center;padding:clamp(28px,4vw,46px) 0}
+.as-eyebrow{font-family:"JetBrains Mono";font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink);margin-bottom:11px;display:flex;align-items:center;gap:9px}
+.as-eyebrow .tk{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.as-title{font-family:"Bricolage Grotesque";font-weight:700;font-size:clamp(20px,2.4vw,28px);letter-spacing:-.022em;line-height:1.08;margin-bottom:9px}
+.as-lead{font-size:14.5px;line-height:1.55;color:var(--ink-2);max-width:48ch}
+.prompt-box{display:flex;align-items:stretch;background:var(--night);border-radius:13px;overflow:hidden;box-shadow:0 24px 48px -30px rgba(16,17,20,.55),inset 0 0 0 1px rgba(255,255,255,.05)}
+.prompt-text{flex:1;font-family:"JetBrains Mono";font-size:12.5px;line-height:1.6;color:#dfe1ea;padding:16px 18px;word-break:break-word;-webkit-user-select:all;user-select:all}
+.prompt-text .u{color:#7fb0ff}
+.prompt-copy{flex:none;display:inline-flex;align-items:center;gap:8px;align-self:stretch;padding:0 18px;border:0;border-left:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#fff;font-family:"Instrument Sans",sans-serif;font-size:13.5px;font-weight:600;cursor:pointer;transition:background .3s ease}
+.prompt-copy:hover{background:var(--accent)}
+.prompt-copy.copied{background:var(--ok);color:#06231a}
+.prompt-copy svg{width:14px;height:14px}
+.prompt-copy .pc-check{display:none}
+.prompt-copy.copied .pc-clip{display:none}
+.prompt-copy.copied .pc-check{display:inline}
+@media(max-width:760px){.agent-start-in{grid-template-columns:1fr;gap:18px}.prompt-box{flex-direction:column}.prompt-copy{border-left:0;border-top:1px solid rgba(255,255,255,.1);justify-content:center;padding:13px}}
 </style>
 </head>
 <body>
@@ -383,6 +402,24 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px}
     </div>
   </div>
 </header>
+
+<section class="agent-start">
+  <div class="wrap agent-start-in">
+    <div>
+      <p class="as-eyebrow"><span class="tk"></span> Start with your agent</p>
+      <h2 class="as-title">Don’t set it up by hand. Let your agent do it.</h2>
+      <p class="as-lead">GenSwarms ships a skill your coding agent can read. Paste this into Claude Code, Cursor, or any agent — it installs, configures, and launches a swarm for you.</p>
+    </div>
+    <div class="prompt-box">
+      <code class="prompt-text" id="agentPrompt">Read <span class="u">https://genswarms.com/skill.md</span> and use it to set up a production-ready agent swarm with GenSwarms.</code>
+      <button class="prompt-copy" id="promptCopy" type="button" aria-label="Copy the prompt to your clipboard">
+        <svg class="pc-clip" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5" y="5" width="9" height="9" rx="1.6"/><path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/></svg>
+        <svg class="pc-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 5"/></svg>
+        <span class="pc-lbl">Copy</span>
+      </button>
+    </div>
+  </div>
+</section>
 
 <div class="diff">
   <div class="wrap diff-in">
@@ -613,6 +650,19 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px}
     copyBtn.querySelector('.lbl').textContent = 'Copied';
     setTimeout(function(){ copyBtn.classList.remove('copied'); copyBtn.querySelector('.lbl').textContent='Copy'; }, 1600);
   });
+
+  // agent quickstart — copy the prompt
+  var promptCopy = document.getElementById('promptCopy'), agentPrompt = document.getElementById('agentPrompt');
+  if(promptCopy && agentPrompt){
+    promptCopy.addEventListener('click', function(){
+      var txt = agentPrompt.textContent.trim();
+      if(navigator.clipboard){ navigator.clipboard.writeText(txt); }
+      else { var r=document.createRange(); r.selectNodeContents(agentPrompt); var s=getSelection(); s.removeAllRanges(); s.addRange(r); try{document.execCommand('copy');}catch(e){} s.removeAllRanges(); }
+      promptCopy.classList.add('copied');
+      promptCopy.querySelector('.pc-lbl').textContent = 'Copied';
+      setTimeout(function(){ promptCopy.classList.remove('copied'); promptCopy.querySelector('.pc-lbl').textContent='Copy'; }, 1800);
+    });
+  }
 
   // magnetic buttons
   if(!reduce){
