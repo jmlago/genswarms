@@ -20,6 +20,48 @@
 <meta name="twitter:title" content="GenSwarms — agents are unpredictable. your swarm shouldn’t be." />
 <meta name="twitter:description" content="GenSwarms runs AI agents inside declared swarms with isolated workers, explicit message paths, deterministic objects, live events, API control, and supervised recovery." />
 <meta name="twitter:image" content="https://genswarms.com/og-image.png" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://genswarms.com/#org",
+      "name": "GenLayer Labs",
+      "url": "https://genswarms.com/",
+      "logo": "https://genswarms.com/og-image.png",
+      "sameAs": ["https://github.com/genlayerlabs"]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://genswarms.com/#website",
+      "name": "GenSwarms",
+      "url": "https://genswarms.com/",
+      "description": "Declared runtime for agent swarms — isolated workers, explicit message paths, deterministic objects, live events, API control, and supervised recovery.",
+      "publisher": { "@id": "https://genswarms.com/#org" },
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": { "@type": "EntryPoint", "urlTemplate": "https://genswarms.com/docs/?q={search_term_string}" },
+        "query-input": "required name=search_term_string"
+      }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://genswarms.com/#software",
+      "name": "GenSwarms",
+      "url": "https://genswarms.com/",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Linux, macOS",
+      "description": "GenSwarms is an open-source Elixir/OTP runtime for orchestrating swarms of AI agents. Declare agents, deterministic objects, backends, and a directed message graph; GenSwarms runs each agent as an isolated supervised worker, streams every event, and restarts failures automatically.",
+      "softwareHelp": "https://genswarms.com/docs/",
+      "author": { "@id": "https://genswarms.com/#org" },
+      "license": "https://github.com/genlayerlabs/genswarms/blob/main/LICENSE",
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    }
+  ]
+}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -344,6 +386,21 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px}
 .prompt-copy .pc-check{display:none}
 .prompt-copy.copied .pc-clip{display:none}
 .prompt-copy.copied .pc-check{display:inline}
+
+/* ===== FAQ ===== */
+.faq{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--paper)}
+.faq-item{border-top:1px solid var(--line)}
+.faq-item:first-child{border-top:0}
+.faq-item summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:20px 24px;font-family:"Bricolage Grotesque";font-weight:700;font-size:17px;letter-spacing:-.015em;color:var(--ink);transition:background .3s}
+.faq-item summary::-webkit-details-marker{display:none}
+.faq-item summary:hover{background:#fff}
+.faq-item .plus{flex:none;position:relative;width:14px;height:14px}
+.faq-item .plus::before,.faq-item .plus::after{content:"";position:absolute;background:var(--accent);border-radius:2px;transition:transform .35s var(--r-spring),opacity .35s}
+.faq-item .plus::before{top:6px;left:0;width:14px;height:2px}
+.faq-item .plus::after{top:0;left:6px;width:2px;height:14px}
+.faq-item[open] .plus::after{transform:rotate(90deg);opacity:0}
+.faq-item .faq-a{padding:0 24px 22px;font-size:15px;line-height:1.6;color:var(--ink-2);max-width:74ch}
+.faq-item .faq-a code{font-family:"JetBrains Mono";font-size:12.5px;background:var(--paper-2);border:1px solid var(--line);padding:1px 6px;border-radius:5px;color:var(--accent-ink)}
 </style>
 </head>
 <body>
@@ -538,6 +595,46 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px}
     </div>
     <a class="szc-gh" href="https://github.com/genlayerlabs/subzeroclaw">SubZeroClaw on GitHub <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10L10 3M10 3H4M10 3V9"/></svg></a>
   </section>
+
+  <section class="block" id="faq">
+    <div class="sec-head"><span class="sec-idx">05</span><h2 class="sec-title">Questions</h2><span class="sec-rule"></span></div>
+    <div class="faq reveal">
+      <details class="faq-item" open>
+        <summary>What is GenSwarms?<span class="plus" aria-hidden="true"></span></summary>
+        <div class="faq-a"><p>GenSwarms is an open-source Elixir/OTP runtime for orchestrating swarms of AI agents. You declare the agents, deterministic objects, backends, and the message graph that connects them; GenSwarms runs each agent as an isolated, supervised worker, streams every event, and restarts failures automatically.</p></div>
+      </details>
+      <details class="faq-item">
+        <summary>How is GenSwarms different from LangGraph, CrewAI, or AutoGen?<span class="plus" aria-hidden="true"></span></summary>
+        <div class="faq-a"><p>Those are Python libraries you wire together in code. GenSwarms is a runtime: the topology is declared rather than implicit, each agent runs as its own isolated supervised process, every message and crash is observable in real time, and the whole swarm is controllable over a REST + WebSocket API.</p></div>
+      </details>
+      <details class="faq-item">
+        <summary>Which agent backends does it support?<span class="plus" aria-hidden="true"></span></summary>
+        <div class="faq-a"><p>Local processes, Docker containers, SSH remotes, Bubblewrap sandboxes, and a Mock backend for testing — chosen per agent without changing the swarm design.</p></div>
+      </details>
+      <details class="faq-item">
+        <summary>Is GenSwarms production-ready?<span class="plus" aria-hidden="true"></span></summary>
+        <div class="faq-a"><p>It is built on Elixir/OTP supervision: an agent that crashes, hangs, or drifts is restarted without bringing down the rest of the graph, and you can watch task flow, restarts, and outputs as they happen. Failure is expected; outage isn't.</p></div>
+      </details>
+      <details class="faq-item">
+        <summary>What models can the agents use?<span class="plus" aria-hidden="true"></span></summary>
+        <div class="faq-a"><p>Agents are model-agnostic. Each agent runs the minimal open-source SubZeroClaw loop and can use any provider via <code>SUBZEROCLAW_MODEL</code>; only a <code>SUBZEROCLAW_API_KEY</code> is required to run real agents.</p></div>
+      </details>
+    </div>
+  </section>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "What is GenSwarms?", "acceptedAnswer": { "@type": "Answer", "text": "GenSwarms is an open-source Elixir/OTP runtime for orchestrating swarms of AI agents. You declare the agents, deterministic objects, backends, and the message graph that connects them; GenSwarms runs each agent as an isolated, supervised worker, streams every event, and restarts failures automatically." } },
+      { "@type": "Question", "name": "How is GenSwarms different from LangGraph, CrewAI, or AutoGen?", "acceptedAnswer": { "@type": "Answer", "text": "Those are Python libraries you wire together in code. GenSwarms is a runtime: the topology is declared rather than implicit, each agent runs as its own isolated supervised process, every message and crash is observable in real time, and the whole swarm is controllable over a REST + WebSocket API." } },
+      { "@type": "Question", "name": "Which agent backends does it support?", "acceptedAnswer": { "@type": "Answer", "text": "Local processes, Docker containers, SSH remotes, Bubblewrap sandboxes, and a Mock backend for testing — chosen per agent without changing the swarm design." } },
+      { "@type": "Question", "name": "Is GenSwarms production-ready?", "acceptedAnswer": { "@type": "Answer", "text": "It is built on Elixir/OTP supervision: an agent that crashes, hangs, or drifts is restarted without bringing down the rest of the graph, and you can watch task flow, restarts, and outputs as they happen. Failure is expected; outage isn't." } },
+      { "@type": "Question", "name": "What models can the agents use?", "acceptedAnswer": { "@type": "Answer", "text": "Agents are model-agnostic. Each agent runs the minimal open-source SubZeroClaw loop and can use any provider via SUBZEROCLAW_MODEL; only a SUBZEROCLAW_API_KEY is required to run real agents." } }
+    ]
+  }
+  </script>
 
   <div class="band reveal" id="start">
     <div class="band-glow" aria-hidden="true"></div>

@@ -1,0 +1,34 @@
+# GenSwarms
+
+> GenSwarms is an open-source Elixir/OTP runtime for orchestrating swarms of AI agents. You declare the agents, deterministic objects, backends, and the directed message graph that connects them; GenSwarms runs each agent as an isolated supervised worker, streams every event live, and restarts failures automatically.
+
+Agents are stochastic, but the swarm around them is declared, bounded, observable, and recoverable. Each worker runs the minimal open-source SubZeroClaw agent loop (~380 lines of C); GenSwarms adds the system layer a swarm needs: isolation, routing, supervision, state, observability, and a REST + WebSocket API. License: MIT.
+
+## Start here
+
+- [Operating skill (SKILL.md)](https://genswarms.com/skill.md): the canonical, agent-readable how-to for installing, configuring, and running a swarm. Point your coding agent at this.
+- [Getting started](https://genswarms.com/docs/getting-started/): install, build the `genswarms` CLI, run your first swarm, environment variables.
+
+## Documentation
+
+- [Configuration](https://genswarms.com/docs/configuration/): the swarm config DSL — agents, objects, topology, and backends (`.exs`/`.json`/`.yaml`).
+- [CLI reference](https://genswarms.com/docs/cli/): every `genswarms` / `mix genswarms.*` command with flags.
+- [Architecture](https://genswarms.com/docs/architecture/): supervision tree, the daemon model, and deployment topologies.
+- [Messaging & routing](https://genswarms.com/docs/messaging/): `@agent:` syntax, topology-gated routing, file inbox/outbox.
+- [Objects](https://genswarms.com/docs/objects/): deterministic, non-agentic components that participate in the topology.
+- [Skills](https://genswarms.com/docs/skills/): per-agent markdown skills and template variables.
+- [Backends](https://genswarms.com/docs/backends/): Local, Docker, SSH, Bwrap, and Mock execution backends.
+- [Containers](https://genswarms.com/docs/containers/): NixOS container images, tool presets, and sandbox internals.
+- [REST API](https://genswarms.com/docs/rest-api/): the complete JSON HTTP API.
+- [WebSocket API](https://genswarms.com/docs/websocket/): real-time agent output, routing, and event streams.
+- [Programmatic usage](https://genswarms.com/docs/programmatic/): driving GenSwarms as an Elixir library.
+- [Observability](https://genswarms.com/docs/observability/): logs, events, and metrics.
+- [Testing](https://genswarms.com/docs/testing/): validating and running swarms, the mock backend.
+- [Troubleshooting](https://genswarms.com/docs/troubleshooting/): common issues and fixes.
+
+## More
+
+- [Blog](https://genswarms.com/docs/blog/): notes and guides from the team building GenSwarms.
+- [Full documentation (single file)](https://genswarms.com/llms-full.txt): every doc page concatenated for one-shot ingestion.
+- [GitHub repository](https://github.com/genlayerlabs/genswarms): source, issues, and license.
+- [SubZeroClaw](https://github.com/genlayerlabs/subzeroclaw): the minimal agent loop each worker runs.

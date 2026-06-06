@@ -46,6 +46,21 @@ jobs:
           # Serve the canonical skill at genswarms.com/skill.md (the landing's
           # copy-to-agent prompt points here; kept in sync from the repo root).
           cp SKILL.md _site/skill.md
+          # AI/agent surface: curated index (llms.txt) + full-text dump (llms-full.txt)
+          cp website/llms.txt _site/llms.txt
+          {
+            echo "# GenSwarms — full documentation"
+            echo
+            echo "> Concatenated from the GenSwarms repository for LLM ingestion."
+            echo "> Source: https://github.com/genlayerlabs/genswarms"
+            for f in SKILL.md docs/README.md docs/getting-started.md docs/configuration.md \
+                     docs/cli.md docs/architecture.md docs/messaging.md docs/objects.md \
+                     docs/skills.md docs/backends.md docs/containers.md docs/rest-api.md \
+                     docs/websocket.md docs/programmatic.md docs/observability.md \
+                     docs/testing.md docs/troubleshooting.md; do
+              echo; echo "---"; echo; cat "$f"
+            done
+          } > _site/llms-full.txt
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
