@@ -38,6 +38,7 @@ jobs:
           cp website/CNAME _site/CNAME
           cp website/robots.txt _site/robots.txt
           cp website/sitemap.xml _site/sitemap.xml
+          cp website/404.html _site/404.html
           touch _site/.nojekyll
           # Serve the canonical skill at genswarms.com/skill.md (the landing's
           # copy-to-agent prompt points here; kept in sync from the repo root).

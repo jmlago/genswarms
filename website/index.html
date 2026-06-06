@@ -89,7 +89,10 @@ nav.scrolled{border-color:var(--line);background:color-mix(in srgb,var(--paper) 
 @keyframes ring{0%{transform:scale(.5);opacity:.5}100%{transform:scale(1.7);opacity:0}}
 h1.hero-title{font-family:"Bricolage Grotesque";font-weight:800;font-size:clamp(40px,7.4vw,86px);line-height:.99;letter-spacing:-.034em;margin-bottom:30px}
 .hero-title .line{display:block;overflow:hidden}
-.hero-title .line > span{display:block;transform:translateY(110%);transition:transform 1s var(--r-out)}
+/* Line 2 carries the accent underline, which sits ~.14em below the text. Pad the
+   clip box so overflow:hidden never reaches it — during the draw or after. */
+.hero-title .line:nth-child(2){padding-bottom:.22em}
+.hero-title .line > span{display:block;transform:translateY(130%);transition:transform 1s var(--r-out)}
 .loaded .hero-title .line:nth-child(1) > span{transition-delay:.05s}
 .loaded .hero-title .line:nth-child(2) > span{transition-delay:.16s}
 .loaded .hero-title .line > span{transform:translateY(0)}
@@ -577,14 +580,6 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px}
 (function(){
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   requestAnimationFrame(function(){ document.body.classList.add('loaded'); });
-
-  // The hero-title lines clip with overflow:hidden for the slide-up reveal, which
-  // also cuts the accent underline that sits just below the text. Once the reveal
-  // (and the underline draw) finish, stop clipping so the underline shows fully.
-  (function(){
-    function unclip(){ document.querySelectorAll('.hero-title .line').forEach(function(l){ l.style.overflow='visible'; }); }
-    if(reduce) unclip(); else setTimeout(unclip, 2000);
-  })();
 
   // nav border on scroll
   var nav = document.getElementById('nav');
