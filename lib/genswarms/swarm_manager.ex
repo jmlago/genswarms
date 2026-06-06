@@ -18,6 +18,20 @@ defmodule Genswarms.SwarmManager do
   alias Genswarms.Objects.ObjectSupervisor
   alias Genswarms.Routing.Router
 
+  # Upper bound on agents per swarm. Each agent spawns a real OS
+  # subprocess/container + a polling LogWatcher, so an unbounded add/scale is a
+  # host resource-exhaustion DoS (CWE-770). Override with
+  # config :genswarms, :max_agents_per_swarm, N.
+  @default_max_agents_per_swarm 100
+
+  defp max_agents_per_swarm do
+    Application.get_env(:genswarms, :max_agents_per_swarm, @default_max_agents_per_swarm)
+  end
+
+  defp agent_count(swarm_name) do
+    length(AgentSupervisor.list_agents(swarm_name))
+  end
+
   defstruct swarms: %{}
 
   @type swarm_info :: %{
@@ -898,6 +912,13 @@ defmodule Genswarms.SwarmManager do
     incoming = Keyword.get(opts, :incoming, [])
 
     cond do
+      # Backstop the per-swarm agent cap at the actual spawn site (covers
+      # add_agent and any per-replica scale path). Each agent is a real
+      # subprocess/container — unbounded creation is a host DoS.
+      not already_registered?(swarm_name, name) and
+          agent_count(swarm_name) >= max_agents_per_swarm() ->
+        {:error, {:agent_limit_reached, max_agents_per_swarm()}}
+
       already_registered?(swarm_name, name) ->
         {:error, {:already_exists, name}}
 
@@ -1054,7 +1075,23 @@ defmodule Genswarms.SwarmManager do
 
   defp do_scale_agent_group(swarm_name, swarm_info, base_name, target_count, _opts) do
     existing_members = find_group_members(swarm_name, base_name)
+    max = max_agents_per_swarm()
 
+    cond do
+      # Reject an oversized scale BEFORE building 1..target_count (which would
+      # also mint target_count atoms via :"#{base}_#{i}"). CWE-770.
+      target_count > max ->
+        {:error, {:scale_limit_exceeded, max}}
+
+      find_template_spec(swarm_info.config.agents, base_name) == nil ->
+        {:error, {:no_template, base_name}}
+
+      true ->
+        do_scale_to_targets(swarm_name, swarm_info, base_name, target_count, existing_members)
+    end
+  end
+
+  defp do_scale_to_targets(swarm_name, swarm_info, base_name, target_count, existing_members) do
     case find_template_spec(swarm_info.config.agents, base_name) do
       nil ->
         {:error, {:no_template, base_name}}
