@@ -898,6 +898,14 @@ defmodule Genswarms.SwarmManager do
     incoming = Keyword.get(opts, :incoming, [])
 
     cond do
+      # Runtime-created agent names flow into backend spawn commands, so apply the
+      # same identifier rule used at config-parse time. This covers the dynamic
+      # add-agent API and any other caller, which bypass SwarmConfig.parse.
+      not SwarmConfig.valid_identifier?(name) ->
+        {:error,
+         {:invalid_agent_name,
+          "Agent name must start with a letter and contain only alphanumeric, underscore, or hyphen characters"}}
+
       already_registered?(swarm_name, name) ->
         {:error, {:already_exists, name}}
 

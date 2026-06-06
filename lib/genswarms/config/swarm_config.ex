@@ -233,11 +233,21 @@ defmodule Genswarms.Config.SwarmConfig do
   # A safe identifier: starts with a letter, then alphanumerics / underscore / hyphen.
   # Used for both swarm and agent names because these flow into OS process names,
   # container names, file paths, and (historically) shell command strings.
-  @name_regex ~r/^[a-zA-Z][a-zA-Z0-9_-]*$/
+  # \A...\z (not ^...$): ^/$ match at line boundaries, so ^...$ would accept a
+  # trailing newline ("valid\n"); \A...\z anchor the whole string.
+  @name_regex ~r/\A[a-zA-Z][a-zA-Z0-9_-]*\z/
 
-  defp valid_identifier?(name) when is_atom(name), do: valid_identifier?(Atom.to_string(name))
-  defp valid_identifier?(name) when is_binary(name), do: String.match?(name, @name_regex)
-  defp valid_identifier?(_), do: false
+  @doc """
+  Returns true if `name` is a valid agent/swarm identifier (starts with a letter,
+  then alphanumeric/underscore/hyphen, whole-string anchored).
+
+  Public so runtime creation paths (e.g. the dynamic add-agent API) can reject
+  unsafe names with the same rule used at config-parse time.
+  """
+  @spec valid_identifier?(term()) :: boolean()
+  def valid_identifier?(name) when is_atom(name), do: valid_identifier?(Atom.to_string(name))
+  def valid_identifier?(name) when is_binary(name), do: String.match?(name, @name_regex)
+  def valid_identifier?(_), do: false
 
   defp validate_name(%{name: name}) when is_binary(name) and byte_size(name) > 0 do
     if valid_identifier?(name) do

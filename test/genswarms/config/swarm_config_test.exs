@@ -71,13 +71,32 @@ defmodule Genswarms.Config.SwarmConfigTest do
             "a name",
             "a&&b",
             "../escape",
-            "a\nb"
+            "a\nb",
+            # trailing newline must be rejected too — ^...$ would have allowed
+            # it, \A...\z does not
+            "valid\n",
+            "\nvalid"
           ] do
         config = %{name: "test", agents: [%{name: evil, backend: :local}]}
 
         assert {:error, {:invalid_agent_name, _}} = SwarmConfig.parse(config),
                "expected #{inspect(evil)} to be rejected"
       end
+    end
+
+    test "valid_identifier?/1 anchors the whole string (no trailing-newline bypass)" do
+      assert SwarmConfig.valid_identifier?("researcher")
+      assert SwarmConfig.valid_identifier?("coder_2")
+      assert SwarmConfig.valid_identifier?("eval-bot")
+      assert SwarmConfig.valid_identifier?(:atom_name)
+
+      refute SwarmConfig.valid_identifier?("valid\n")
+      refute SwarmConfig.valid_identifier?("\nvalid")
+      refute SwarmConfig.valid_identifier?("a b")
+      refute SwarmConfig.valid_identifier?("1leading")
+      refute SwarmConfig.valid_identifier?("a;b")
+      refute SwarmConfig.valid_identifier?("")
+      refute SwarmConfig.valid_identifier?(123)
     end
 
     test "rejects agent names that do not start with a letter" do
