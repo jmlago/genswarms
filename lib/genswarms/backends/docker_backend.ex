@@ -56,6 +56,9 @@ defmodule Genswarms.Backends.DockerBackend do
     [:base, :code, :containers, :cloud] => "szc-agent-devops:latest"
   }
 
+  # Default process limit per agent container (fork-bomb containment).
+  @default_pids_limit 512
+
   @impl true
   def backend_type, do: :docker
 
@@ -403,6 +406,7 @@ defmodule Genswarms.Backends.DockerBackend do
       ) do
     base_args = ["run", "-i", "--rm", "--name", to_string(container_name)]
 
+    security_args = build_security_args(config)
     env_args = build_env_args(api_key, model, endpoint, agent_name, config)
     volume_args = build_volume_args(skills_dir, config)
     network_args = build_network_args(config)
@@ -410,7 +414,45 @@ defmodule Genswarms.Backends.DockerBackend do
     container_cmd = normalize_container_cmd(Map.get(config, :cmd))
 
     base_args ++
-      env_args ++ volume_args ++ network_args ++ resource_args ++ [to_string(image)] ++ container_cmd
+      security_args ++
+      env_args ++
+      volume_args ++ network_args ++ resource_args ++ [to_string(image)] ++ container_cmd
+  end
+
+  # Conservative sandbox hardening, all opt-out via config:
+  #   * no-new-privileges: blocks setuid privilege escalation inside the
+  #     container (disable with allow_new_privileges: true)
+  #   * --cap-drop ALL: drops every Linux capability; add specific ones back
+  #     with cap_add: [...] or disable the drop with cap_drop_all: false
+  #   * --pids-limit: caps processes/threads to contain fork bombs
+  #     (override with pids_limit: N, or pids_limit: false to disable)
+  #   * --tmpfs /tmp: a private, in-container temp dir, replacing the previous
+  #     bind of the host's /tmp (which exposed host temp to every agent)
+  defp build_security_args(config) do
+    no_new_privs =
+      if Map.get(config, :allow_new_privileges, false),
+        do: [],
+        else: ["--security-opt", "no-new-privileges"]
+
+    cap_args =
+      if Map.get(config, :cap_drop_all, true) do
+        added =
+          config
+          |> Map.get(:cap_add, [])
+          |> Enum.flat_map(fn cap -> ["--cap-add", to_string(cap)] end)
+
+        ["--cap-drop", "ALL"] ++ added
+      else
+        []
+      end
+
+    pids_args =
+      case Map.get(config, :pids_limit, @default_pids_limit) do
+        n when is_integer(n) and n > 0 -> ["--pids-limit", to_string(n)]
+        _ -> []
+      end
+
+    no_new_privs ++ cap_args ++ pids_args ++ ["--tmpfs", "/tmp"]
   end
 
   # A user-supplied :cmd runs *inside the container*. A list is used as argv; a
@@ -506,8 +548,9 @@ defmodule Genswarms.Backends.DockerBackend do
         volumes
       end
 
-    # Mount /tmp for nix-shell and other tools that need temp space
-    volumes = volumes ++ ["-v", "/tmp:/tmp"]
+    # Temp space is provided by a private in-container tmpfs (see
+    # build_security_args/1) rather than bind-mounting the host's /tmp, which
+    # would expose host temp files to every agent.
 
     # Note: swarm-msg is baked into szc-agent-* containers via nix/container.nix
 
