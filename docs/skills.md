@@ -1,3 +1,7 @@
+---
+description: Author per-agent skills in GenSwarms — plain markdown instructions with template variables resolved per agent at deploy time.
+---
+
 # Skills
 
 Skills are markdown files that define an agent's role, capabilities, and behavior. Each agent is assigned a list of skills in its config; when the agent starts, those files are copied into the agent's own skills directory with template variables resolved per agent.

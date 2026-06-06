@@ -1,3 +1,7 @@
+---
+description: Drive GenSwarms directly as an Elixir library — start swarms, send tasks, and manage agents from code.
+---
+
 # Programmatic API
 
 Genswarms is an OTP application (`:genswarms`) and can be driven directly from

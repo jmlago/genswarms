@@ -1,3 +1,7 @@
+---
+description: GenSwarms execution backends — Local, Docker, SSH, Bubblewrap, and Mock — and how to choose one per agent.
+---
+
 # Backends
 
 A backend is how Genswarms actually runs a subzeroclaw agent. Every agent in a swarm config declares a `backend:`, and Genswarms uses the matching backend module to start the process, send it input, deploy skills, and health-check it. All backends implement the same `Genswarms.Backends.BackendBehaviour` contract, so they are interchangeable from the swarm's point of view — you can move an agent from `:local` to `{:docker, "researcher"}` to `:bwrap` without changing anything else in your topology.

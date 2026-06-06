@@ -1,3 +1,7 @@
+---
+description: The GenSwarms WebSocket API — subscribe to real-time agent output, message routing, and event streams.
+---
+
 # WebSocket API
 
 Genswarms exposes a Phoenix WebSocket alongside its [REST API](rest-api.md) for real-time, per-swarm communication: sending tasks, fetching status, and streaming logs and events as they happen.

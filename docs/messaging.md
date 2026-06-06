@@ -1,3 +1,7 @@
+---
+description: Inter-agent messaging in GenSwarms — @agent: syntax, topology-gated routing, broadcast, and the file-based inbox/outbox.
+---
+
 # Messaging
 
 Genswarms agents coordinate by sending messages to one another. Messages flow through a central `Genswarms.Routing.Router`, which validates every hop against the swarm topology before delivering it. This page covers the message syntax agents emit, how topology gates routing, the always-routable system objects, the file-based inbox and outbox channels, and the `swarm-msg` helper available inside agent sandboxes.

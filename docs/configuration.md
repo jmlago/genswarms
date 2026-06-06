@@ -1,3 +1,7 @@
+---
+description: The GenSwarms swarm configuration DSL: declare agents, deterministic objects, topology edges, and backends in .exs, .json, or .yaml.
+---
+
 # Swarm configuration
 
 The Swarm Configuration DSL is the declarative format that defines a swarm: its name, its agents and objects, and the topology that connects them. Configs can be written as Elixir (`.exs`), JSON (`.json`), or YAML (`.yaml`/`.yml`) and are validated by `Genswarms.Config.SwarmConfig` when loaded.

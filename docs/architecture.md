@@ -1,3 +1,7 @@
+---
+description: How GenSwarms works: the OTP supervision tree, the daemon model, SQLite coordination, and deployment topologies.
+---
+
 # Architecture
 
 Genswarms is an Elixir/OTP application that orchestrates swarms of subzeroclaw agents. This document describes the supervision tree, the per-swarm processes, the API-first design, the daemon model, and the supported deployment topologies.

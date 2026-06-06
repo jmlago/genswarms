@@ -1,3 +1,7 @@
+---
+description: Install GenSwarms, build the CLI, set your API key, and run your first AI agent swarm — with the full bring-up checklist and key environment variables.
+---
+
 # Getting started
 
 This guide walks you through installing Genswarms, building the `genswarms` CLI, and running your first swarm end to end. By the end you will have an API server running, a swarm started from config, and a task delivered to an agent.

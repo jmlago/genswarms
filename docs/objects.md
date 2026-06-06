@@ -1,3 +1,7 @@
+---
+description: Objects in GenSwarms: deterministic, non-agentic Elixir components that participate in the swarm topology.
+---
+
 # Objects
 
 Objects are non-agentic components of a swarm. Where an agent is backed by an LLM

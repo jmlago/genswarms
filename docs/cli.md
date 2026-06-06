@@ -1,3 +1,7 @@
+---
+description: Complete GenSwarms CLI reference — every genswarms and mix genswarms.* command for starting, tasking, scaling, and observing swarms.
+---
+
 # CLI reference
 
 The `genswarms` command-line interface manages the full lifecycle of a swarm: creating projects, starting and stopping swarms, sending tasks and messages, querying events, and performing advanced runtime operations like scaling and snapshotting. This page documents every subcommand, grounded in the actual task modules under `lib/mix/tasks/genswarms/`.

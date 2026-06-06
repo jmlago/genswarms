@@ -1,3 +1,7 @@
+---
+description: Troubleshoot GenSwarms — fixes for agents that won't start, messages not routing, and common backend issues.
+---
+
 # Troubleshooting
 
 Common problems running Genswarms and how to fix them. Most issues fall into agent startup, message routing, backend setup, task delivery, or the API server.

@@ -1,3 +1,7 @@
+---
+description: Documentation for GenSwarms — the declared Elixir/OTP runtime for swarms of AI agents. Start here, then jump to configuration, the CLI, backends, and the API.
+---
+
 # Genswarms documentation
 
 Genswarms is an Elixir/OTP orchestrator for swarms of `subzeroclaw` agents, with

@@ -1,3 +1,7 @@
+---
+description: Build NixOS agent container images for GenSwarms, configure tool presets, and understand the bwrap sandbox internals.
+---
+
 # Containers and sandboxes
 
 Genswarms runs agents inside isolated execution environments built with Nix. Two

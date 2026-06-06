@@ -1,3 +1,7 @@
+---
+description: The GenSwarms REST API — create and control swarms, send tasks, manage agents and topology, and query events over JSON HTTP.
+---
+
 # REST API
 
 Genswarms exposes a pure JSON REST API served by Phoenix (no HTML/frontend is included). The same server also hosts a WebSocket endpoint for real-time streaming — see [websocket.md](websocket.md).

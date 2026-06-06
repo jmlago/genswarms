@@ -1,3 +1,7 @@
+---
+description: Observe GenSwarms swarms — stream logs, query events, and track metrics across agents and the runtime.
+---
+
 # Observability
 
 Genswarms exposes everything that happens in a swarm through a single event spine.

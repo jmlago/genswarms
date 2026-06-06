@@ -1,3 +1,7 @@
+---
+description: Test GenSwarms swarms — validate configs and run examples with mix genswarms.test and the mock backend.
+---
+
 # Testing and development
 
 Genswarms ships two layers of tests: fast ExUnit unit tests for individual modules

@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so git-revision-date can read last-modified dates
 
       - uses: actions/setup-python@v5
         with:
@@ -29,7 +31,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libcairo2-dev libfreetype6-dev libffi-dev libjpeg-dev libpng-dev libz-dev pngquant
 
       - name: Install MkDocs Material
-        run: pip install "mkdocs-material[imaging]>=9.5,<10"
+        run: pip install "mkdocs-material[imaging]>=9.5,<10" mkdocs-git-revision-date-localized-plugin
 
       - name: Build docs into _site/docs
         run: mkdocs build --strict --site-dir _site/docs
