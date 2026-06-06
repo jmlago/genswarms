@@ -5,7 +5,7 @@ description: Operate and orchestrate genswarms agent swarms — author swarm con
 
 # genswarms
 
-Genswarms is an Elixir/OTP orchestrator for swarms of `subzeroclaw` agents. A swarm is a
+GenSwarms is an Elixir/OTP orchestrator for swarms of `subzeroclaw` agents. A swarm is a
 declarative set of **agents** (pluggable backends: Local / Docker / SSH / Bwrap / Mock),
 optional non-agentic **objects**, and a directed-graph **topology** connecting them. Swarms run
 as independent daemon processes; an optional Phoenix server exposes a JSON REST API + WebSocket.

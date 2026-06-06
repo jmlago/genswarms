@@ -4,7 +4,7 @@ description: How GenSwarms works: the OTP supervision tree, the daemon model, SQ
 
 # Architecture
 
-Genswarms is an Elixir/OTP application that orchestrates swarms of subzeroclaw agents. This document describes the supervision tree, the per-swarm processes, the API-first design, the daemon model, and the supported deployment topologies.
+GenSwarms is an Elixir/OTP application that orchestrates swarms of subzeroclaw agents. This document describes the supervision tree, the per-swarm processes, the API-first design, the daemon model, and the supported deployment topologies.
 
 ## Overview
 
@@ -82,7 +82,7 @@ The endpoint is optional and lifecycle-managed at runtime rather than supervised
 - `stop_web_server/0` terminates the relay and the endpoint, returning `{:error, :not_running}` if the server is not up.
 
 ```text
-External client (React, Vue, CLI)        Genswarms API node (Phoenix)
+External client (React, Vue, CLI)        GenSwarms API node (Phoenix)
         │                                        │
         ├── HTTP  ──────────────────────────────►├── REST API  (/api/*)
         ├── WS    ──────────────────────────────►├── WebSocket (swarm:* channel)

@@ -4,7 +4,7 @@ description: The GenSwarms REST API — create and control swarms, send tasks, m
 
 # REST API
 
-Genswarms exposes a pure JSON REST API served by Phoenix (no HTML/frontend is included). The same server also hosts a WebSocket endpoint for real-time streaming — see [websocket.md](websocket.md).
+GenSwarms exposes a pure JSON REST API served by Phoenix (no HTML/frontend is included). The same server also hosts a WebSocket endpoint for real-time streaming — see [websocket.md](websocket.md).
 
 All routes are defined in `lib/genswarms_web/router.ex` and implemented by the controllers in `lib/genswarms_web/controllers/`. This page documents every route, derived directly from those sources.
 

@@ -4,7 +4,7 @@ description: Troubleshoot GenSwarms — fixes for agents that won't start, messa
 
 # Troubleshooting
 
-Common problems running Genswarms and how to fix them. Most issues fall into agent startup, message routing, backend setup, task delivery, or the API server.
+Common problems running GenSwarms and how to fix them. Most issues fall into agent startup, message routing, backend setup, task delivery, or the API server.
 
 Before digging in, two commands surface most problems:
 
@@ -47,7 +47,7 @@ curl "http://localhost:4000/api/swarms/example-swarm/messages?limit=20"
 
 1. Check the Docker daemon is up: `docker ps`.
 2. Confirm the agent image exists: `docker images`. Build images with `nix build .#agentContainer-<preset>` and `docker load < result` (presets: `base`, `web`, `code`, `data`, `python`, `node`, `full`). If the expected image is missing, the backend tries to build it via `nix` and otherwise falls back to `szc-agent-base:latest`.
-3. Inspect a container's logs directly. Genswarms names containers `szc-{swarm}-{agent}`:
+3. Inspect a container's logs directly. GenSwarms names containers `szc-{swarm}-{agent}`:
 
 ```bash
 docker logs szc-example-swarm-coder

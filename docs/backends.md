@@ -4,7 +4,7 @@ description: GenSwarms execution backends — Local, Docker, SSH, Bubblewrap, an
 
 # Backends
 
-A backend is how Genswarms actually runs a subzeroclaw agent. Every agent in a swarm config declares a `backend:`, and Genswarms uses the matching backend module to start the process, send it input, deploy skills, and health-check it. All backends implement the same `Genswarms.Backends.BackendBehaviour` contract, so they are interchangeable from the swarm's point of view — you can move an agent from `:local` to `{:docker, "researcher"}` to `:bwrap` without changing anything else in your topology.
+A backend is how GenSwarms actually runs a subzeroclaw agent. Every agent in a swarm config declares a `backend:`, and GenSwarms uses the matching backend module to start the process, send it input, deploy skills, and health-check it. All backends implement the same `Genswarms.Backends.BackendBehaviour` contract, so they are interchangeable from the swarm's point of view — you can move an agent from `:local` to `{:docker, "researcher"}` to `:bwrap` without changing anything else in your topology.
 
 This guide covers each backend: how it runs, the config it accepts, and what you need on the host.
 
@@ -205,7 +205,7 @@ The bwrap backend locates the `subzeroclaw` binary in this order (first existing
 
 1. Explicit `subzeroclaw_path` in config, or the `:subzeroclaw_path` application env (used directly if the file exists).
 2. `../subzeroclaw/subzeroclaw` relative to the current working directory (sibling checkout).
-3. `../subzeroclaw/subzeroclaw` relative to the Genswarms source dir (when Genswarms is used as a dependency).
+3. `../subzeroclaw/subzeroclaw` relative to the GenSwarms source dir (when GenSwarms is used as a dependency).
 4. The `SUBZEROCLAW_PATH` environment variable.
 5. The system `PATH` (via `which subzeroclaw`).
 

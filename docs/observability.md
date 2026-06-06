@@ -4,7 +4,7 @@ description: Observe GenSwarms swarms — stream logs, query events, and track m
 
 # Observability
 
-Genswarms exposes everything that happens in a swarm through a single event spine.
+GenSwarms exposes everything that happens in a swarm through a single event spine.
 Every observable state transition emits a `:telemetry` event, a bridge funnels
 those into a centralized store, and the store persists, streams, and serves them.
 Understanding that spine is the key to building any dashboard, monitor, or alerting
@@ -229,7 +229,7 @@ changes, not the emitters, the bridge, the channel, or `EventRelay`.
 ## Cross-process event stream
 
 A BEAM's in-memory machinery (PubSub, the process `Registry`, the ETS `LogStore`)
-is node-local and invisible from another OS process. Genswarms supports two
+is node-local and invisible from another OS process. GenSwarms supports two
 deployment shapes.
 
 Co-located: the swarm runs in the same BEAM as the Phoenix endpoint (for example,

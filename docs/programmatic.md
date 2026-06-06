@@ -4,7 +4,7 @@ description: Drive GenSwarms directly as an Elixir library — start swarms, sen
 
 # Programmatic API
 
-Genswarms is an OTP application (`:genswarms`) and can be driven directly from
+GenSwarms is an OTP application (`:genswarms`) and can be driven directly from
 Elixir. The public surface lives in the `Genswarms` module
 (`lib/genswarms.ex`), which delegates to `Genswarms.SwarmManager`. This guide
 covers starting and managing swarms in process, sending tasks, and subscribing
@@ -151,7 +151,7 @@ Each of these mutations broadcasts `{:topology_changed, swarm_name}` on the
 
 ## Subscribing to events via PubSub
 
-Genswarms broadcasts live activity on `Phoenix.PubSub` under the
+GenSwarms broadcasts live activity on `Phoenix.PubSub` under the
 `Genswarms.PubSub` name. Subscribe from any process and handle the messages in
 `handle_info/2` (or receive them in an IEx session). Each broadcast is a plain
 Erlang tuple — there is no JSON envelope at this layer.

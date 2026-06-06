@@ -2,9 +2,9 @@
 description: Documentation for GenSwarms — the declared Elixir/OTP runtime for swarms of AI agents. Start here, then jump to configuration, the CLI, backends, and the API.
 ---
 
-# Genswarms documentation
+# GenSwarms documentation
 
-Genswarms is an Elixir/OTP orchestrator for swarms of `subzeroclaw` agents, with
+GenSwarms is an Elixir/OTP orchestrator for swarms of `subzeroclaw` agents, with
 pluggable backends, arbitrary directed-graph topologies, per-agent skills, and
 fault tolerance via OTP supervision trees.
 
@@ -42,4 +42,4 @@ This is the documentation index. If you are new, start with
 
 - [REST API](rest-api.md) — the complete pure-JSON HTTP API served by Phoenix.
 - [WebSocket API](websocket.md) — real-time agent output, message routing, and event streams over the `swarm:{name}` channel.
-- [Programmatic API](programmatic.md) — driving Genswarms directly as an Elixir library.
+- [Programmatic API](programmatic.md) — driving GenSwarms directly as an Elixir library.

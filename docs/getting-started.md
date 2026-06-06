@@ -4,11 +4,11 @@ description: Install GenSwarms, build the CLI, set your API key, and run your fi
 
 # Getting started
 
-This guide walks you through installing Genswarms, building the `genswarms` CLI, and running your first swarm end to end. By the end you will have an API server running, a swarm started from config, and a task delivered to an agent.
+This guide walks you through installing GenSwarms, building the `genswarms` CLI, and running your first swarm end to end. By the end you will have an API server running, a swarm started from config, and a task delivered to an agent.
 
 ## Prerequisites
 
-Genswarms is an Elixir/OTP application. You can get the toolchain either through the bundled Nix dev shell or by installing the runtimes yourself.
+GenSwarms is an Elixir/OTP application. You can get the toolchain either through the bundled Nix dev shell or by installing the runtimes yourself.
 
 ### With Nix (recommended)
 
@@ -45,7 +45,7 @@ mix deps.get
 
 ## Build the CLI
 
-Genswarms ships a single `genswarms` CLI, built as an Elixir escript:
+GenSwarms ships a single `genswarms` CLI, built as an Elixir escript:
 
 ```bash
 mix escript.build
@@ -165,7 +165,7 @@ genswarms down                 # stop all swarms and the API server
 
 ## Local data directory
 
-Genswarms keeps cross-process state under `.genswarms/` in the project directory, including the SQLite database at `.genswarms/swarms.db` plus events and logs. This is where swarm state, the task queue, and the event log live.
+GenSwarms keeps cross-process state under `.genswarms/` in the project directory, including the SQLite database at `.genswarms/swarms.db` plus events and logs. This is where swarm state, the task queue, and the event log live.
 
 ## Environment variables
 

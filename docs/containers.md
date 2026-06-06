@@ -4,7 +4,7 @@ description: Build NixOS agent container images for GenSwarms, configure tool pr
 
 # Containers and sandboxes
 
-Genswarms runs agents inside isolated execution environments built with Nix. Two
+GenSwarms runs agents inside isolated execution environments built with Nix. Two
 families of environment share the same tool presets: NixOS-based Docker images
 (for the `{:docker, "name"}` backend) and Bubblewrap sandboxes (for the `:bwrap`
 backend, designed for 10k+ agents on a single host). This page covers the build

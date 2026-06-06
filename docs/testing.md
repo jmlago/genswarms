@@ -4,7 +4,7 @@ description: Test GenSwarms swarms — validate configs and run examples with mi
 
 # Testing and development
 
-Genswarms ships two layers of tests: fast ExUnit unit tests for individual modules
+GenSwarms ships two layers of tests: fast ExUnit unit tests for individual modules
 and an end-to-end harness (`mix genswarms.test`) that validates and runs the example
 swarm configurations. A mock backend lets you exercise topologies and routing
 without any LLM API calls. This page covers both, plus formatting and the
@@ -160,7 +160,7 @@ mix genswarms.test --mock path/to/script.json
 
 The task expands the path with `Path.expand/1` and exports it as
 `SUBZEROCLAW_MOCK_SCRIPT`, which is passed through to the agents (including bwrap
-sandboxes). The `subzeroclaw` runtime — not Genswarms — reads the script and
+sandboxes). The `subzeroclaw` runtime — not GenSwarms — reads the script and
 returns canned responses instead of calling the API. The script format is
 defined by subzeroclaw.
 
