@@ -295,6 +295,12 @@ defmodule Genswarms.Backends.BwrapBackendTest do
       args = args_for(config: %{extra_ro_binds: [{"/nonexistent/path/xyz", "/container"}]})
       refute "/container" in args
     end
+
+    test "includes --new-session (TIOCSTI TTY-injection guard) and --die-with-parent" do
+      args = args_for([])
+      assert "--new-session" in args
+      assert "--die-with-parent" in args
+    end
   end
 
   describe "handle_output/2" do

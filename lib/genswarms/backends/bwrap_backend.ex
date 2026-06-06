@@ -439,6 +439,13 @@ defmodule Genswarms.Backends.BwrapBackend do
         # Die when parent dies (prevents orphan processes)
         "--die-with-parent",
 
+        # Run in a new session / detached from the controlling terminal so a
+        # sandboxed process cannot inject input into the host TTY via TIOCSTI
+        # (audit finding 34). NOTE: a restrictive --seccomp profile (deny
+        # userfaultfd, keyctl, nested CLONE_NEWUSER, …) is still recommended but
+        # requires shipping a compiled BPF filter — tracked as a follow-up.
+        "--new-session",
+
         # Set working directory
         "--chdir",
         "/workspace",
