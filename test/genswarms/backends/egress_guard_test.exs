@@ -155,6 +155,45 @@ defmodule Genswarms.Backends.EgressGuardTest do
     end
   end
 
+  describe "docker sidecar" do
+    test "naming derives volume + sidecar from the container" do
+      assert EgressGuard.docker_volume_name("szc-s-coder") == "szc-egress-szc-s-coder"
+      assert EgressGuard.docker_sidecar_name("szc-s-coder") == "szc-s-coder-egress"
+      assert EgressGuard.docker_sandbox_socket() == "/egress/llm.sock"
+    end
+
+    test "agent volume args mount the shared egress volume" do
+      assert EgressGuard.docker_agent_volume_args("szc-s-coder") ==
+               ["-v", "szc-egress-szc-s-coder:/egress"]
+    end
+
+    test "curlrc points the agent's curl at the /egress socket" do
+      assert EgressGuard.curlrc_content(EgressGuard.docker_sandbox_socket()) =~
+               ~s(unix-socket = "/egress/llm.sock")
+    end
+
+    test "sidecar run args pin the destination host:port (agent can't redirect)" do
+      args =
+        EgressGuard.docker_sidecar_run_args(
+          "szc-s-coder-egress",
+          "szc-egress-szc-s-coder",
+          "alpine/socat",
+          "api.example.com",
+          443
+        )
+
+      assert Enum.take(args, 2) == ["run", "-d"]
+      assert "--name" in args and "szc-s-coder-egress" in args
+      # shared volume mounted at /egress (same kernel as the agent)
+      assert "szc-egress-szc-s-coder:/egress" in args
+      assert "alpine/socat" in args
+      # forking unix-listener in the shared volume
+      assert Enum.any?(args, &(&1 =~ "UNIX-LISTEN:/egress/llm.sock" and &1 =~ "fork"))
+      # destination fixed on the host side
+      assert "TCP:api.example.com:443" in args
+    end
+  end
+
   describe "host_socket_path/1" do
     test "places the socket inside the agent workspace" do
       assert EgressGuard.host_socket_path("/tmp/ws") == "/tmp/ws/.llm.sock"

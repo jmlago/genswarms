@@ -153,7 +153,10 @@ defmodule Genswarms.Backends.DockerBackend do
 
     egress_result =
       if isolated do
-        EgressGuard.start_forwarder(Map.fetch!(config, :workspace), config)
+        # socat runs in a sidecar container (VM-side) sharing a docker volume with
+        # the --network none agent — a host-side socket can't be reached from a
+        # sibling container on Docker Desktop.
+        EgressGuard.start_docker_sidecar(container_name, Map.fetch!(config, :workspace), config)
       else
         {:ok, nil}
       end
@@ -458,6 +461,13 @@ defmodule Genswarms.Backends.DockerBackend do
     network_args = build_network_args(config)
     resource_args = build_resource_args(config)
 
+    # Isolation: mount the shared egress volume so the agent reaches the sidecar
+    # socat over /egress/llm.sock (its only path out, since --network none).
+    egress_args =
+      if EgressGuard.isolated?(config),
+        do: EgressGuard.docker_agent_volume_args(container_name),
+        else: []
+
     # Build and run subzeroclaw inside the container
     # Source is mounted read-only at /src/subzeroclaw, we copy and compile in ~/build
     # We use ~/build (not /tmp/build) to avoid conflicts since /tmp is shared via mount
@@ -471,7 +481,8 @@ defmodule Genswarms.Backends.DockerBackend do
 
     all_args =
       base_args ++
-        env_args ++ volume_args ++ network_args ++ resource_args ++ [image, container_cmd]
+        env_args ++
+        volume_args ++ egress_args ++ network_args ++ resource_args ++ [image, container_cmd]
 
     Enum.join(all_args, " ")
   end

@@ -30,17 +30,24 @@ defmodule Genswarms.Backends.DockerBackendTest do
       assert cmd =~ "CURL_HOME=/workspace"
     end
 
-    test "mounts the (per-agent) workspace at /workspace so the socket is visible" do
+    test "mounts the (per-agent) workspace at /workspace so .curlrc is visible" do
       cmd = build(%{network: :isolated, workspace: "/tmp/szc-ws/agent"})
       assert cmd =~ "/tmp/szc-ws/agent:/workspace"
+    end
+
+    test "mounts the per-agent egress volume (sidecar socket lives there)" do
+      cmd = build(%{network: :isolated, workspace: "/tmp/szc-ws/agent"})
+      # container_name in build/1 is "szc-test-agent"
+      assert cmd =~ "szc-egress-szc-test-agent:/egress"
     end
   end
 
   describe "default (network: :open)" do
-    test "keeps current behavior — no forced network, no CURL_HOME" do
+    test "keeps current behavior — no forced network, no CURL_HOME, no egress volume" do
       cmd = build(%{})
       refute cmd =~ "--network none"
       refute cmd =~ "CURL_HOME"
+      refute cmd =~ "/egress"
     end
 
     test "an explicit docker network name still passes through" do

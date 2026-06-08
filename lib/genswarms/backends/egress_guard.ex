@@ -59,9 +59,27 @@ defmodule Genswarms.Backends.EgressGuard do
   @sandbox_socket "/workspace/.llm.sock"
   @sandbox_socket_name ".llm.sock"
 
-  defstruct [:port, :socket_path]
+  # Docker sidecar: the socket lives in a shared docker volume mounted at /egress
+  # in both the sidecar and the (`--network none`) agent container.
+  @docker_sandbox_socket "/egress/llm.sock"
+  @docker_egress_mount "/egress"
 
-  @type t :: %__MODULE__{port: port() | nil, socket_path: String.t() | nil}
+  # Two forwarder kinds:
+  #   :host_socat     — bwrap: socat spawned by the BEAM; socket in the workspace.
+  #                     Works because the BEAM and the bwrap sandbox share one kernel.
+  #   :docker_sidecar — :docker backend: socat runs in a sidecar *container* sharing
+  #                     a docker volume with the agent. Required on Docker Desktop,
+  #                     where a host-side (macOS-kernel) socket cannot be connect()ed
+  #                     from a sibling VM container — the socket must be VM-side.
+  defstruct [:kind, :port, :socket_path, :sidecar, :volume]
+
+  @type t :: %__MODULE__{
+          kind: :host_socat | :docker_sidecar | nil,
+          port: port() | nil,
+          socket_path: String.t() | nil,
+          sidecar: String.t() | nil,
+          volume: String.t() | nil
+        }
 
   @doc "Whether the agent config requested network isolation."
   @spec isolated?(map()) :: boolean()
@@ -186,8 +204,52 @@ defmodule Genswarms.Backends.EgressGuard do
   end
 
   @doc "Contents of the `.curlrc` that routes the agent's curl through the socket."
-  @spec curlrc_content() :: String.t()
-  def curlrc_content, do: ~s(unix-socket = "#{@sandbox_socket}"\n)
+  @spec curlrc_content(String.t()) :: String.t()
+  def curlrc_content(sandbox_socket \\ @sandbox_socket),
+    do: ~s(unix-socket = "#{sandbox_socket}"\n)
+
+  @doc "Sandbox-side socket path for the docker sidecar (shared `/egress` volume)."
+  @spec docker_sandbox_socket() :: String.t()
+  def docker_sandbox_socket, do: @docker_sandbox_socket
+
+  @doc "Per-agent docker volume that carries the egress socket."
+  @spec docker_volume_name(String.t()) :: String.t()
+  def docker_volume_name(container_name), do: "szc-egress-#{container_name}"
+
+  @doc "Sidecar container name for an agent container."
+  @spec docker_sidecar_name(String.t()) :: String.t()
+  def docker_sidecar_name(container_name), do: "#{container_name}-egress"
+
+  @doc "`-v` args mounting the egress volume into the agent container."
+  @spec docker_agent_volume_args(String.t()) :: [String.t()]
+  def docker_agent_volume_args(container_name),
+    do: ["-v", "#{docker_volume_name(container_name)}:#{@docker_egress_mount}"]
+
+  # Image that provides socat as its entrypoint (e.g. alpine/socat: `socat <a> <b>`).
+  defp docker_sidecar_image,
+    do: Application.get_env(:genswarms, :egress_image, "alpine/socat")
+
+  @doc """
+  `docker run` argv for the sidecar: a forking Unix-listener in the shared volume
+  that relays to the pinned endpoint. The agent reaches it via the volume socket;
+  the destination host:port is fixed here, not chosen by the agent.
+  """
+  @spec docker_sidecar_run_args(String.t(), String.t(), String.t(), String.t(), pos_integer()) ::
+          [String.t()]
+  def docker_sidecar_run_args(sidecar_name, volume, image, host, port) do
+    [
+      "run",
+      "-d",
+      "--rm",
+      "--name",
+      sidecar_name,
+      "-v",
+      "#{volume}:#{@docker_egress_mount}",
+      image,
+      "UNIX-LISTEN:#{@docker_sandbox_socket},fork,mode=0666,unlink-early",
+      "TCP:#{host}:#{port}"
+    ]
+  end
 
   @doc """
   Starts the egress forwarder for an isolated agent.
@@ -216,14 +278,57 @@ defmodule Genswarms.Backends.EgressGuard do
             {:args, args}
           ])
 
-        {:ok, %__MODULE__{port: port_ref, socket_path: socket_path}}
+        {:ok, %__MODULE__{kind: :host_socat, port: port_ref, socket_path: socket_path}}
       end
     end
   end
 
-  @doc "Stops the forwarder and removes its socket. Safe on nil."
+  @doc """
+  Starts the egress forwarder for an isolated **docker** agent as a sidecar
+  container.
+
+  socat must run VM-side (same kernel as the agent container) — a host-side socket
+  cannot be connect()ed from a sibling container on Docker Desktop. So the
+  forwarder runs in its own container sharing a docker volume (the socket) with the
+  `--network none` agent. Writes the agent `.curlrc`, (re)creates the volume, and
+  launches the sidecar pinned to the resolved endpoint.
+  """
+  @spec start_docker_sidecar(String.t(), String.t(), map()) :: {:ok, t()} | {:error, term()}
+  def start_docker_sidecar(container_name, workspace, config) do
+    with {:ok, endpoint} <- resolve_allowed_endpoint(config),
+         {:ok, {host, port}} <- endpoint_target(endpoint) do
+      volume = docker_volume_name(container_name)
+      sidecar = docker_sidecar_name(container_name)
+
+      # Route the agent's curl through the shared-volume socket.
+      File.write!(Path.join(workspace, ".curlrc"), curlrc_content(@docker_sandbox_socket))
+
+      # Fresh sidecar + volume (clear any leftovers from a previous run).
+      System.cmd("docker", ["rm", "-f", sidecar], stderr_to_stdout: true)
+      System.cmd("docker", ["volume", "rm", "-f", volume], stderr_to_stdout: true)
+      System.cmd("docker", ["volume", "create", volume], stderr_to_stdout: true)
+
+      args = docker_sidecar_run_args(sidecar, volume, docker_sidecar_image(), host, port)
+
+      case System.cmd("docker", args, stderr_to_stdout: true) do
+        {_, 0} ->
+          {:ok, %__MODULE__{kind: :docker_sidecar, sidecar: sidecar, volume: volume}}
+
+        {out, code} ->
+          {:error, {:sidecar_failed, code, String.slice(out, 0, 300)}}
+      end
+    end
+  end
+
+  @doc "Stops the forwarder and frees its resources. Safe on nil."
   @spec stop_forwarder(t() | nil) :: :ok
   def stop_forwarder(nil), do: :ok
+
+  def stop_forwarder(%__MODULE__{kind: :docker_sidecar, sidecar: sidecar, volume: volume}) do
+    if sidecar, do: System.cmd("docker", ["rm", "-f", sidecar], stderr_to_stdout: true)
+    if volume, do: System.cmd("docker", ["volume", "rm", "-f", volume], stderr_to_stdout: true)
+    :ok
+  end
 
   def stop_forwarder(%__MODULE__{port: port, socket_path: socket_path}) do
     if port do
