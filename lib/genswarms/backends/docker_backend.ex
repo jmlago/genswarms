@@ -148,7 +148,7 @@ defmodule Genswarms.Backends.DockerBackend do
       )
 
     Logger.info("Starting NixOS Docker container for agent #{name}: #{container_name}")
-    Logger.info("Docker command: #{cmd}")
+    Logger.info("Docker command: #{redact_secrets(cmd)}")
 
     port_opts = [
       :binary,
@@ -190,7 +190,7 @@ defmodule Genswarms.Backends.DockerBackend do
           "Failed to start container: #{inspect(e)}",
           swarm: swarm_name,
           agent: String.to_atom(name),
-          metadata: %{image: image, container: container_name, error: inspect(e), cmd: cmd}
+          metadata: %{image: image, container: container_name, error: inspect(e), cmd: redact_secrets(cmd)}
         )
 
         {:error, {:start_failed, e}}
@@ -418,6 +418,13 @@ defmodule Genswarms.Backends.DockerBackend do
         env_args ++ volume_args ++ network_args ++ resource_args ++ [image, container_cmd]
 
     Enum.join(all_args, " ")
+  end
+
+  # Redact secret env values before a command string is logged or stored in event
+  # metadata. The argv embeds `-e SUBZEROCLAW_API_KEY='…'` (and any *_KEY/_TOKEN/
+  # _SECRET/_PASSWORD), which must never reach a log file or the events DB in cleartext.
+  defp redact_secrets(cmd) do
+    Regex.replace(~r/([A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD)[A-Z0-9_]*=')[^']*'/, cmd, "\\1[REDACTED]'")
   end
 
   defp build_env_args(api_key, model, endpoint, agent_name, config) do
