@@ -295,6 +295,18 @@ defmodule Genswarms.Backends.BwrapBackendTest do
       args = args_for(config: %{extra_ro_binds: [{"/nonexistent/path/xyz", "/container"}]})
       refute "/container" in args
     end
+
+    test "network: :isolated folds in --unshare-net and CURL_HOME as discrete argv entries" do
+      args = args_for(config: %{network: :isolated})
+      assert "--unshare-net" in args
+      assert_flag_value(args, "--setenv", "CURL_HOME")
+    end
+
+    test "default (network: :open) keeps the network namespace and adds no CURL_HOME" do
+      args = args_for([])
+      refute "--unshare-net" in args
+      refute "CURL_HOME" in args
+    end
   end
 
   describe "handle_output/2" do
