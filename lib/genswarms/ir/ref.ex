@@ -24,7 +24,7 @@ defmodule Genswarms.IR.Ref do
   @enforce_keys [:ref, :scheme, :kind]
   defstruct [:ref, :scheme, :digest, :kind, :attested, :host]
 
-  @type kind :: :data | :code
+  @type kind :: :data | :code | nil
   @type t :: %__MODULE__{
           ref: String.t(),
           scheme: String.t(),
@@ -53,7 +53,7 @@ defmodule Genswarms.IR.Ref do
   def parse(map) when is_map(map) do
     with {:ok, ref} <- fetch_ref(map),
          {:ok, scheme} <- scheme(ref),
-         {:ok, kind} <- fetch_kind(map),
+         {:ok, kind} <- fetch_kind(map, scheme),
          :ok <- validate_host(scheme, map),
          :ok <- validate_attested(map) do
       {:ok,
@@ -124,11 +124,14 @@ defmodule Genswarms.IR.Ref do
     end
   end
 
-  defp fetch_kind(map) do
+  # `kind` (data/code) describes *package content*, so it is required for
+  # content-addressable refs (swarmidx/oci) and omitted for non-hashable refs
+  # (model endpoints, ssh hosts), which are not packages (§2.4, §3.7 examples).
+  defp fetch_kind(map, scheme) do
     case Map.get(map, "kind") do
       "data" -> {:ok, :data}
       "code" -> {:ok, :code}
-      nil -> {:error, :missing_kind}
+      nil -> if content_addressable?(scheme), do: {:error, :missing_kind}, else: {:ok, nil}
       other -> {:error, {:invalid_kind, other}}
     end
   end
