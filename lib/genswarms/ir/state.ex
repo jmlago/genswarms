@@ -134,7 +134,9 @@ defmodule Genswarms.IR.State do
 
   # ── element parsing ──────────────────────────────────────────────────────
 
-  defp parse_agent(%{} = m) do
+  @doc "Parses+validates a single agent map (slot-typed). Reused by IR.Overlay."
+  @spec parse_agent(map()) :: {:ok, Agent.t()} | {:error, term()}
+  def parse_agent(%{} = m) do
     with {:ok, name} <- fetch_string(m, "name"),
          {:ok, body} <- parse_typed_ref(m, "body", :data),
          {:ok, model} <- parse_model_slot(m),
@@ -151,16 +153,18 @@ defmodule Genswarms.IR.State do
     end
   end
 
-  defp parse_agent(_), do: {:error, :invalid_agent}
+  def parse_agent(_), do: {:error, :invalid_agent}
 
-  defp parse_object(%{} = m) do
+  @doc "Parses+validates a single object map (handler is kind:code). Reused by IR.Overlay."
+  @spec parse_object(map()) :: {:ok, Object.t()} | {:error, term()}
+  def parse_object(%{} = m) do
     with {:ok, name} <- fetch_string(m, "name"),
          {:ok, handler} <- parse_typed_ref(m, "handler", :code) do
       {:ok, %Object{name: name, handler: handler, config: Map.get(m, "config", %{})}}
     end
   end
 
-  defp parse_object(_), do: {:error, :invalid_object}
+  def parse_object(_), do: {:error, :invalid_object}
 
   # A slot ref that must have a specific content kind (body→data, handler→code).
   defp parse_typed_ref(m, key, expected_kind) do
