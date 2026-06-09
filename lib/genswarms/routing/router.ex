@@ -235,6 +235,37 @@ defmodule Genswarms.Routing.Router do
 
       topology ->
         if can_route?(topology, from, to) do
+          # Async-reply ordering guard:
+          #
+          # When an agent sends to an object that has a back-edge to the agent
+          # (object is in the agent's incoming set), the agent is entering an
+          # async request/reply cycle.  Mark the agent as awaiting so any new
+          # user task arriving before the reply is queued rather than forwarded
+          # to the backend immediately (which would mis-correlate turns).
+          #
+          # Conversely, when an object delivers a message to an agent, the reply
+          # has arrived — clear the flag so queued tasks are released on the next
+          # TURN_COMPLETE.
+          case sender_type(swarm_name, from) do
+            :agent ->
+              # from=agent, to=object (or another agent): set awaiting if the
+              # target can reply back (has a return edge to `from`).
+              if reply_expecting?(topology, from, to) do
+                AgentServer.set_awaiting(swarm_name, from)
+              end
+
+            :object ->
+              # from=object, to=agent: the reply has arrived.  clear_awaiting is
+              # handled atomically inside deliver_message — do NOT call it here
+              # to avoid a window where awaiting is cleared but the reply has not
+              # yet been queued/delivered, which would allow a racing send_task to
+              # bypass the gate.
+              :ok
+
+            :unknown ->
+              :ok
+          end
+
           # Deliver message to target (agent or object) - async
           deliver_to_target(swarm_name, to, from, content)
 
@@ -278,6 +309,27 @@ defmodule Genswarms.Routing.Router do
       topology ->
         # Get all targets (agents/objects) that `from` can send to
         targets = Map.get(topology, from, [])
+
+        # Async-reply ordering guard (broadcast variant):
+        # If the sender is an agent and ANY of the broadcast targets is a
+        # reply-expecting object (has a back-edge to `from`), mark the agent
+        # as awaiting.  We also handle the object→agent case symmetrically.
+        case sender_type(swarm_name, from) do
+          :agent ->
+            if Enum.any?(targets, &reply_expecting?(topology, from, &1)) do
+              AgentServer.set_awaiting(swarm_name, from)
+            end
+
+          :object ->
+            # An object broadcasting to potentially multiple agents — awaiting is
+            # cleared atomically inside each deliver_message call, so we do NOT
+            # call clear_awaiting here (same race-closure rationale as the direct
+            # route path above).
+            :ok
+
+          :unknown ->
+            :ok
+        end
 
         # Deliver to all connected targets
         Enum.each(targets, fn to ->
@@ -361,4 +413,29 @@ defmodule Genswarms.Routing.Router do
       {event, data}
     )
   end
+
+  # Async-reply ordering guard helpers
+  # -----------------------------------------------------------------------
+
+  # Returns true if `object` has a back-edge to `agent` in the topology
+  # (i.e., `object` can send messages back to `agent`).  This is how we
+  # detect "reply-expecting" objects without hardcoding any names.
+  # System objects are intentionally excluded: they receive one-way
+  # notifications and never reply to the agent.
+  defp reply_expecting?(topology, agent, object) do
+    object not in @system_objects and
+      agent in Map.get(topology, object, [])
+  end
+
+  # Look up a node's registration type in the Registry.
+  # Returns :agent, :object, or :unknown.
+  defp sender_type(swarm_name, name) do
+    case Registry.lookup(Genswarms.AgentRegistry, {swarm_name, name}) do
+      [{_pid, :agent}] -> :agent
+      [{_pid, :object}] -> :object
+      [{_pid, _other}] -> :agent
+      [] -> :unknown
+    end
+  end
+
 end
