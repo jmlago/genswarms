@@ -18,6 +18,16 @@ defmodule Genswarms.Agents.AgentServer do
   alias Genswarms.Config.SwarmConfig
   alias Genswarms.Routing.Router
 
+  # How long (ms) to wait for an async object reply before giving up and
+  # releasing the inbox.  Configurable via :genswarms, :awaiting_reply_timeout.
+  #
+  # Must exceed the slowest reply-expecting object's reply latency (e.g. a
+  # headless-browser render up to ~45s); too short releases queued tasks before
+  # the reply and re-introduces mis-ordering.  Objects sitting on a reply-edge
+  # MUST eventually reply (or broadcast/send) to the agent, or the agent stalls
+  # until this timeout.
+  @default_awaiting_timeout_ms 90_000
+
   defstruct [
     :name,
     :swarm_name,
@@ -34,7 +44,20 @@ defmodule Genswarms.Agents.AgentServer do
     file_inbox_seq: 0,
     history: [],
     started_at: nil,
-    last_activity: nil
+    last_activity: nil,
+    # --- async-reply ordering guard ---
+    # When the agent has sent a message to an object that can reply (the object
+    # is in the agent's incoming topology), we set awaiting_reply: true.  Any
+    # new user task that arrives while awaiting is pushed into the Inbox instead
+    # of being forwarded to the backend immediately.  This prevents the race
+    # where a fast follow-up user message overtakes the still-pending object
+    # reply and causes mis-correlation of turns.
+    #
+    # cleared_by: clear_awaiting/2 (Router calls this when the object reply
+    # arrives), or the :awaiting_timeout safety valve.
+    awaiting_reply: false,
+    awaiting_since: nil,
+    awaiting_timer_ref: nil
   ]
 
   @type state :: :initializing | :idle | :working | :error | :stopped
@@ -51,7 +74,10 @@ defmodule Genswarms.Agents.AgentServer do
           buffer: binary(),
           message_count: non_neg_integer(),
           started_at: DateTime.t() | nil,
-          last_activity: DateTime.t() | nil
+          last_activity: DateTime.t() | nil,
+          awaiting_reply: boolean(),
+          awaiting_since: integer() | nil,
+          awaiting_timer_ref: reference() | nil
         }
 
   # Client API
@@ -134,6 +160,29 @@ defmodule Genswarms.Agents.AgentServer do
   """
   def stop(swarm_name, agent_name) do
     GenServer.stop(via_tuple(swarm_name, agent_name))
+  end
+
+  @doc """
+  Marks the agent as awaiting an async object reply.
+
+  Called by the Router when it routes a message FROM this agent TO an object
+  that has a return-path edge back to the agent (object is in the agent's
+  incoming topology).  While awaiting, new user tasks are queued in the Inbox
+  rather than forwarded to the backend immediately, preserving reply ordering.
+  """
+  def set_awaiting(swarm_name, agent_name) do
+    GenServer.cast(via_tuple(swarm_name, agent_name), :set_awaiting)
+  end
+
+  @doc """
+  Clears the awaiting-reply flag.
+
+  Called by the Router when it delivers a message FROM an object TO this agent
+  (i.e., the expected reply arrived).  After clearing, the agent's Inbox is
+  processed on the next TURN_COMPLETE as normal.
+  """
+  def clear_awaiting(swarm_name, agent_name) do
+    GenServer.cast(via_tuple(swarm_name, agent_name), :clear_awaiting)
   end
 
   # Server callbacks
@@ -270,6 +319,31 @@ defmodule Genswarms.Agents.AgentServer do
     handle_agent_output(data, state)
   end
 
+  # Safety timeout: the expected object reply never arrived (object crashed, message
+  # dropped, etc.).  Release the Inbox so the agent can continue.
+  def handle_info(:awaiting_timeout, state) do
+    if state.awaiting_reply do
+      elapsed_ms = System.monotonic_time(:millisecond) - (state.awaiting_since || 0)
+
+      Logger.warning(
+        "[#{state.swarm_name}/#{state.name}] Awaiting-reply timeout after #{elapsed_ms}ms — " <>
+          "releasing inbox (object reply may have been lost)"
+      )
+
+      new_state = %{
+        state
+        | awaiting_reply: false,
+          awaiting_since: nil,
+          awaiting_timer_ref: nil
+      }
+
+      {:noreply, maybe_process_inbox(new_state)}
+    else
+      # Timer fired after clear_awaiting already ran; nothing to do.
+      {:noreply, %{state | awaiting_timer_ref: nil}}
+    end
+  end
+
   def handle_info(msg, state) do
     Logger.debug("[#{state.swarm_name}/#{state.name}] Unhandled message: #{inspect(msg)}")
     {:noreply, state}
@@ -279,21 +353,55 @@ defmodule Genswarms.Agents.AgentServer do
   def handle_call({:send_task, task}, _from, state) do
     case state.state do
       s when s in [:idle, :working] ->
-        message = AgentProtocol.encode_task(task)
-        send_to_backend(state, message)
-        emit_telemetry(:task_sent, state, %{task: task})
+        # If the agent is waiting for an async object reply, queue the task in
+        # the Inbox instead of forwarding it to the backend.  It will be
+        # released (in order) via maybe_process_inbox/1 after the reply turn
+        # completes.  This prevents rapid follow-up user messages from
+        # interleaving with in-flight async replies and mis-correlating turns.
+        if state.awaiting_reply do
+          history_entry = %{
+            type: :task,
+            content: task,
+            timestamp: DateTime.utc_now()
+          }
 
-        # Add to history
-        history_entry = %{
-          type: :task,
-          content: task,
-          timestamp: DateTime.utc_now()
-        }
+          case Inbox.push(state.inbox, %{
+                 from: "orchestrator",
+                 content: task,
+                 received_at: DateTime.utc_now(),
+                 task?: true
+               }) do
+            {:ok, new_inbox} ->
+              Logger.debug(
+                "[#{state.swarm_name}/#{state.name}] Task queued in Inbox (awaiting reply)"
+              )
 
-        new_history = [history_entry | state.history]
+              {:reply, :ok,
+               %{state | inbox: new_inbox, history: [history_entry | state.history]}}
 
-        {:reply, :ok,
-         %{state | state: :working, history: new_history, last_activity: DateTime.utc_now()}}
+            {:error, :inbox_full} ->
+              Logger.warning(
+                "[#{state.swarm_name}/#{state.name}] Inbox full, dropping queued task"
+              )
+
+              {:reply, :ok, state}
+          end
+        else
+          message = AgentProtocol.encode_task(task)
+          send_to_backend(state, message)
+          emit_telemetry(:task_sent, state, %{task: task})
+
+          history_entry = %{
+            type: :task,
+            content: task,
+            timestamp: DateTime.utc_now()
+          }
+
+          new_history = [history_entry | state.history]
+
+          {:reply, :ok,
+           %{state | state: :working, history: new_history, last_activity: DateTime.utc_now()}}
+        end
 
       :error ->
         {:reply, {:error, :agent_error}, state}
@@ -399,6 +507,19 @@ defmodule Genswarms.Agents.AgentServer do
 
   @impl true
   def handle_cast({:deliver_message, from, content}, state) do
+    # A delivered message clears the awaiting gate atomically with delivery, so
+    # a racing send_task is still gated until the reply is in.  We do this
+    # unconditionally at the top of the handler — any delivered message means
+    # the agent is no longer awaiting — before the rest of the delivery logic
+    # runs on the already-cleared state.
+    state =
+      if state.awaiting_reply do
+        cancel_awaiting_timer(state.awaiting_timer_ref)
+        %{state | awaiting_reply: false, awaiting_since: nil, awaiting_timer_ref: nil}
+      else
+        state
+      end
+
     # Log incoming message
     content_preview =
       if String.length(content) > 100 do
@@ -468,7 +589,42 @@ defmodule Genswarms.Agents.AgentServer do
   end
 
   @impl true
+  def handle_cast(:set_awaiting, state) do
+    # Cancel any pre-existing stale timer before arming a new one.
+    cancel_awaiting_timer(state.awaiting_timer_ref)
+
+    timeout_ms =
+      Application.get_env(:genswarms, :awaiting_reply_timeout, @default_awaiting_timeout_ms)
+
+    timer_ref = Process.send_after(self(), :awaiting_timeout, timeout_ms)
+
+    Logger.debug(
+      "[#{state.swarm_name}/#{state.name}] Awaiting async object reply (timeout #{timeout_ms}ms)"
+    )
+
+    {:noreply,
+     %{
+       state
+       | awaiting_reply: true,
+         awaiting_since: System.monotonic_time(:millisecond),
+         awaiting_timer_ref: timer_ref
+     }}
+  end
+
+  def handle_cast(:clear_awaiting, state) do
+    cancel_awaiting_timer(state.awaiting_timer_ref)
+
+    Logger.debug("[#{state.swarm_name}/#{state.name}] Cleared awaiting-reply flag")
+
+    {:noreply,
+     %{state | awaiting_reply: false, awaiting_since: nil, awaiting_timer_ref: nil}}
+  end
+
+  @impl true
   def terminate(_reason, state) do
+    # Clear any pending timer so it doesn't fire into a dead process.
+    cancel_awaiting_timer(state.awaiting_timer_ref)
+
     if state.backend_ref do
       state.backend_module.stop(state.backend_ref)
     end
@@ -620,6 +776,14 @@ defmodule Genswarms.Agents.AgentServer do
 
   defp maybe_process_inbox(%{state: :idle, inbox: inbox} = state) do
     case Inbox.pop(inbox) do
+      {:ok, %{content: content, task?: true}, new_inbox} ->
+        # Queued user task — encode as a task (not a message) so the agent
+        # receives it byte-identical to a directly-delivered task.
+        message = AgentProtocol.encode_task(content)
+        send_to_backend(state, message)
+        emit_telemetry(:task_sent, state, %{task: content})
+        %{state | inbox: new_inbox, state: :working}
+
       {:ok, %{from: from, content: content}, new_inbox} ->
         message = AgentProtocol.encode_message(content, from)
         send_to_backend(state, message)
@@ -810,4 +974,8 @@ defmodule Genswarms.Agents.AgentServer do
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, _key, []), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  # Cancel a pending awaiting-reply timer if one exists.
+  defp cancel_awaiting_timer(nil), do: :ok
+  defp cancel_awaiting_timer(ref), do: Process.cancel_timer(ref)
 end
