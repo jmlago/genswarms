@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="GenSwarms">
+  <rect width="64" height="64" rx="15" fill="#33301f"/>
+  <g transform="translate(10 10) scale(1.69)">
+    <g fill="none" stroke="#E9E0D2" stroke-width="1.25" stroke-linecap="round" opacity="0.62">
+      <line x1="6" y1="6" x2="20" y2="9"/>
+      <line x1="6" y1="6" x2="9" y2="20"/>
+      <line x1="20" y1="9" x2="20" y2="20"/>
+      <line x1="9" y1="20" x2="20" y2="20"/>
+      <line x1="6" y1="6" x2="20" y2="20"/>
+    </g>
+    <g fill="#EDE3D2">
+      <circle cx="6" cy="6" r="2.9"/>
+      <circle cx="9" cy="20" r="2.9"/>
+      <circle cx="20" cy="20" r="2.9"/>
+    </g>
+    <circle cx="20" cy="9" r="3.1" fill="#C9633F"/>
+  </g>
+</svg>
