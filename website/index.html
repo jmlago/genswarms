@@ -6,7 +6,7 @@
 <title>GenSwarms — agents are unpredictable. your swarm shouldn’t be.</title>
 <meta name="description" content="GenSwarms runs AI agents inside declared swarms with isolated workers, explicit message paths, deterministic objects, live events, API control, and supervised recovery." />
 <link rel="canonical" href="https://genswarms.com/" />
-<meta name="theme-color" content="#FBFBF8" />
+<meta name="theme-color" content="#E9E0D2" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E%3Cg fill='none' stroke='%23101114' stroke-width='1.2'%3E%3Cline x1='6' y1='6' x2='20' y2='9'/%3E%3Cline x1='6' y1='6' x2='9' y2='20'/%3E%3Cline x1='20' y1='9' x2='20' y2='20'/%3E%3Cline x1='9' y1='20' x2='20' y2='20'/%3E%3Cline x1='6' y1='6' x2='20' y2='20'/%3E%3C/g%3E%3Cg fill='%23101114'%3E%3Ccircle cx='6' cy='6' r='2.6'/%3E%3Ccircle cx='20' cy='9' r='2.6'/%3E%3Ccircle cx='9' cy='20' r='2.6'/%3E%3Ccircle cx='20' cy='20' r='2.6'/%3E%3C/g%3E%3C/svg%3E" />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://genswarms.com/" />
@@ -67,19 +67,20 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
 :root{
-  --paper:#FBFBF8;
-  --paper-2:#F4F3EE;
-  --ink:#101114;
-  --ink-2:#3b3d44;
-  --ink-3:#6b6e77;
-  --line:#E4E2D9;
-  --line-2:#d3d0c4;
-  --accent:#1B4DFF;
-  --accent-ink:#1338cc;
-  --night:#0B0C10;
-  --night-2:#14161d;
-  --ok:#3ecf8e;
-  --crash:#ff5a52;
+  /* SubZeroClaw warm system — faithful port over the full GenSwarms layout */
+  --paper:#E9E0D2;
+  --paper-2:#DED3BF;
+  --ink:#33301f;
+  --ink-2:#6b6450;
+  --ink-3:#9a9079;
+  --line:#dcd2bd;
+  --line-2:#cabd9f;
+  --accent:#A84E36;
+  --accent-ink:#8E3F2B;
+  --night:#0b0b0e;
+  --night-2:#1a1812;
+  --ok:#6E7B5A;
+  --crash:#C44A33;
   --r-spring:cubic-bezier(.2,.9,.25,1);
   --r-out:cubic-bezier(.22,1,.36,1);
 }
@@ -277,7 +278,7 @@ section.block{padding:clamp(40px,5vw,72px) 0}
 .band .btn-primary:hover{color:#fff}
 .band .btn-ghost{color:#fff;border-color:rgba(255,255,255,.25)}
 .band .btn-ghost:hover{border-color:#fff}
-.band-glow{position:absolute;width:520px;height:520px;border-radius:50%;background:radial-gradient(circle,rgba(27,77,255,.5),transparent 62%);top:-200px;left:50%;transform:translateX(-50%);filter:blur(40px);opacity:.55}
+.band-glow{position:absolute;width:520px;height:520px;border-radius:50%;background:radial-gradient(circle,rgba(168,78,54,.5),transparent 62%);top:-200px;left:50%;transform:translateX(-50%);filter:blur(40px);opacity:.55}
 
 /* footer */
 footer{border-top:1px solid var(--line);padding:46px 0 60px}
@@ -320,7 +321,7 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px}
 .stack{display:flex;flex-direction:column;gap:1px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--line)}
 .layer{background:var(--paper);padding:24px 26px;display:flex;align-items:center;justify-content:space-between;gap:18px;transition:background .4s}
 .layer:hover{background:#fff}
-.layer.top{background:linear-gradient(90deg,#eef1ff,var(--paper))}
+.layer.top{background:linear-gradient(90deg,#efe2d4,var(--paper))}
 .layer .lt{font-family:"Bricolage Grotesque";font-weight:700;font-size:17px;letter-spacing:-.015em}
 .layer .ld{font-size:13px;color:var(--ink-2);margin-top:4px;max-width:56ch}
 .layer .tag{font-family:"JetBrains Mono";font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;padding:6px 12px;border:1px solid var(--line-2);border-radius:99px;color:var(--ink-3);white-space:nowrap}
@@ -378,7 +379,7 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px}
 .ha-cap{display:block;font-size:12px;color:var(--ink-3);margin-bottom:9px}
 .prompt-box{display:flex;align-items:stretch;background:var(--night);border-radius:11px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
 .prompt-text{flex:1;min-width:0;font-family:"JetBrains Mono";font-size:12px;line-height:1.5;color:#dfe1ea;padding:11px 14px;word-break:break-word;-webkit-user-select:all;user-select:all}
-.prompt-text .u{color:#7fb0ff}
+.prompt-text .u{color:#e0a07f}
 .prompt-copy{flex:none;display:inline-flex;align-items:center;gap:7px;align-self:stretch;padding:0 15px;border:0;border-left:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#fff;font-family:"Instrument Sans",sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:background .3s ease}
 .prompt-copy:hover{background:var(--accent)}
 .prompt-copy.copied{background:var(--ok);color:#06231a}
@@ -492,30 +493,30 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px}
     <div class="arch reveal">
       <svg viewBox="0 0 920 190" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Operating model: a task from the API or CLI goes to the Swarm Manager, runs across a declared message graph of isolated agent workers and deterministic objects, and streams live events, logs, and results. A crashed worker is automatically restarted by the supervisor.">
         <defs>
-          <marker id="fa" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#9a978c"/></marker>
-          <marker id="fb" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#c2bfb3"/></marker>
+          <marker id="fa" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#9a9079"/></marker>
+          <marker id="fb" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#cabd9f"/></marker>
         </defs>
-        <rect x="8" y="38" width="158" height="58" rx="10" fill="#fff" stroke="#d3d0c4"/>
-        <text x="87" y="64" text-anchor="middle" font-size="12" fill="#101114" font-family="JetBrains Mono">Task · API · CLI</text>
-        <text x="87" y="80" text-anchor="middle" font-size="9.5" fill="#6b6e77" font-family="JetBrains Mono">work enters</text>
-        <rect x="196" y="38" width="150" height="58" rx="10" fill="#eef1ff" stroke="#1B4DFF"/>
-        <text x="271" y="64" text-anchor="middle" font-size="12" fill="#1338cc" font-family="JetBrains Mono">Swarm Manager</text>
-        <text x="271" y="80" text-anchor="middle" font-size="9.5" fill="#6b6e77" font-family="JetBrains Mono">dispatch · supervise</text>
-        <rect x="376" y="38" width="160" height="58" rx="10" fill="#fff" stroke="#d3d0c4"/>
-        <text x="456" y="64" text-anchor="middle" font-size="12" fill="#101114" font-family="JetBrains Mono">Message graph</text>
-        <text x="456" y="80" text-anchor="middle" font-size="9.5" fill="#6b6e77" font-family="JetBrains Mono">declared edges</text>
-        <rect x="566" y="38" width="172" height="58" rx="10" fill="#fff" stroke="#d3d0c4"/>
-        <circle cx="600" cy="60" r="4.5" fill="#101114"/><circle cx="624" cy="60" r="4.5" fill="#101114"/><rect x="646" y="55.5" width="9" height="9" fill="#101114"/>
-        <text x="652" y="84" text-anchor="middle" font-size="9.5" fill="#6b6e77" font-family="JetBrains Mono">isolated workers + objects</text>
-        <rect x="768" y="38" width="146" height="58" rx="10" fill="#fff" stroke="#d3d0c4"/>
-        <text x="841" y="64" text-anchor="middle" font-size="12" fill="#101114" font-family="JetBrains Mono">Events · logs</text>
-        <text x="841" y="80" text-anchor="middle" font-size="9.5" fill="#6b6e77" font-family="JetBrains Mono">result · live</text>
-        <line x1="166" y1="67" x2="194" y2="67" stroke="#c2bfb3" stroke-width="1.4" marker-end="url(#fa)"/>
-        <line x1="346" y1="67" x2="374" y2="67" stroke="#c2bfb3" stroke-width="1.4" marker-end="url(#fa)"/>
-        <line x1="536" y1="67" x2="564" y2="67" stroke="#c2bfb3" stroke-width="1.4" marker-end="url(#fa)"/>
-        <line x1="738" y1="67" x2="766" y2="67" stroke="#c2bfb3" stroke-width="1.4" marker-end="url(#fa)"/>
-        <path d="M610 96 C598 152, 706 152, 694 96" fill="none" stroke="#cfccc0" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#fb)"/>
-        <text x="652" y="174" text-anchor="middle" font-size="10" fill="#6b6e77" font-family="JetBrains Mono">crashed worker → supervisor restarts it</text>
+        <rect x="8" y="38" width="158" height="58" rx="10" fill="#F4ECDD" stroke="#cabd9f"/>
+        <text x="87" y="64" text-anchor="middle" font-size="12" fill="#33301f" font-family="JetBrains Mono">Task · API · CLI</text>
+        <text x="87" y="80" text-anchor="middle" font-size="9.5" fill="#9a9079" font-family="JetBrains Mono">work enters</text>
+        <rect x="196" y="38" width="150" height="58" rx="10" fill="#efe2d4" stroke="#A84E36"/>
+        <text x="271" y="64" text-anchor="middle" font-size="12" fill="#8E3F2B" font-family="JetBrains Mono">Swarm Manager</text>
+        <text x="271" y="80" text-anchor="middle" font-size="9.5" fill="#9a9079" font-family="JetBrains Mono">dispatch · supervise</text>
+        <rect x="376" y="38" width="160" height="58" rx="10" fill="#F4ECDD" stroke="#cabd9f"/>
+        <text x="456" y="64" text-anchor="middle" font-size="12" fill="#33301f" font-family="JetBrains Mono">Message graph</text>
+        <text x="456" y="80" text-anchor="middle" font-size="9.5" fill="#9a9079" font-family="JetBrains Mono">declared edges</text>
+        <rect x="566" y="38" width="172" height="58" rx="10" fill="#F4ECDD" stroke="#cabd9f"/>
+        <circle cx="600" cy="60" r="4.5" fill="#33301f"/><circle cx="624" cy="60" r="4.5" fill="#33301f"/><rect x="646" y="55.5" width="9" height="9" fill="#33301f"/>
+        <text x="652" y="84" text-anchor="middle" font-size="9.5" fill="#9a9079" font-family="JetBrains Mono">isolated workers + objects</text>
+        <rect x="768" y="38" width="146" height="58" rx="10" fill="#F4ECDD" stroke="#cabd9f"/>
+        <text x="841" y="64" text-anchor="middle" font-size="12" fill="#33301f" font-family="JetBrains Mono">Events · logs</text>
+        <text x="841" y="80" text-anchor="middle" font-size="9.5" fill="#9a9079" font-family="JetBrains Mono">result · live</text>
+        <line x1="166" y1="67" x2="194" y2="67" stroke="#cabd9f" stroke-width="1.4" marker-end="url(#fa)"/>
+        <line x1="346" y1="67" x2="374" y2="67" stroke="#cabd9f" stroke-width="1.4" marker-end="url(#fa)"/>
+        <line x1="536" y1="67" x2="564" y2="67" stroke="#cabd9f" stroke-width="1.4" marker-end="url(#fa)"/>
+        <line x1="738" y1="67" x2="766" y2="67" stroke="#cabd9f" stroke-width="1.4" marker-end="url(#fa)"/>
+        <path d="M610 96 C598 152, 706 152, 694 96" fill="none" stroke="#cabd9f" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#fb)"/>
+        <text x="652" y="174" text-anchor="middle" font-size="10" fill="#9a9079" font-family="JetBrains Mono">crashed worker → supervisor restarts it</text>
       </svg>
     </div>
     <p class="sec-note" style="margin-top:18px;max-width:66ch">Under the hood, GenSwarms uses Elixir/OTP supervision. But the core idea is simpler: agents can behave unpredictably, while the swarm remains declared, observable, and recoverable.</p>
@@ -775,7 +776,7 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px}
   var pulses=[], ripples=[], mouse={x:0,y:0,on:false};
   var liveCount=MINLIVE, queue=0, busy=false, loadAcc=3200, arrivalAcc=600, spawnCool=0, retireCool=0;
   var crashIdx=-1, crashT=7000, crashUntil=0, supFlash=-9999, shownN=-1, T=0, cxG=0, cyG=0;
-  var ACC='40,77,255', ICE='198,212,255', RED='255,90,82', DIM='150,170,220';
+  var ACC='168,78,54', ICE='235,222,200', RED='196,74,51', DIM='154,144,121';
 
   function resize(){ var r=host.getBoundingClientRect(); W=r.width; H=r.height; canvas.width=W*DPR; canvas.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0); }
   resize(); addEventListener('resize',resize);
@@ -855,15 +856,15 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px}
     // agents — idle (dim) vs working (bright + a progress arc for the in-flight task)
     var Rbase=Math.max(2.6, 5.0-liveCount*0.07);
     for(var i=0;i<MAXN;i++){ var n=nodes[i]; if(n.appear<0.03) continue; var ap=n.appear, Rr=Rbase*ap;
-      if(i===crashIdx){ glow(n.rx,n.ry,Rr*3.4,RED,.5*ap); ctx.globalAlpha=ap; ctx.beginPath(); ctx.arc(n.rx,n.ry,Rr*0.5,0,7); ctx.fillStyle='#ff5a52'; ctx.fill(); ctx.globalAlpha=1; }
-      else if(n.work){ glow(n.rx,n.ry,Rr*4,'200,214,255',.4*ap); ctx.globalAlpha=ap; ctx.beginPath(); ctx.arc(n.rx,n.ry,Rr,0,7); ctx.fillStyle='#eef2ff'; ctx.fill(); ctx.globalAlpha=1;
+      if(i===crashIdx){ glow(n.rx,n.ry,Rr*3.4,RED,.5*ap); ctx.globalAlpha=ap; ctx.beginPath(); ctx.arc(n.rx,n.ry,Rr*0.5,0,7); ctx.fillStyle='#C44A33'; ctx.fill(); ctx.globalAlpha=1; }
+      else if(n.work){ glow(n.rx,n.ry,Rr*4,'230,200,150',.4*ap); ctx.globalAlpha=ap; ctx.beginPath(); ctx.arc(n.rx,n.ry,Rr,0,7); ctx.fillStyle='#F1E7D4'; ctx.fill(); ctx.globalAlpha=1;
         var prog=Math.min(1,(now-n.bStart)/Math.max(1,n.bUntil-n.bStart)); ctx.beginPath(); ctx.arc(n.rx,n.ry,Rr+3,-1.5708,-1.5708+prog*6.2832); ctx.strokeStyle='rgba('+ACC+','+(.85*ap)+')'; ctx.lineWidth=1.4; ctx.stroke(); }
-      else { glow(n.rx,n.ry,Rr*2.4,DIM,.2*ap); ctx.globalAlpha=ap; ctx.beginPath(); ctx.arc(n.rx,n.ry,Rr*0.9,0,7); ctx.fillStyle='#aebbe0'; ctx.fill(); ctx.globalAlpha=1; } }
+      else { glow(n.rx,n.ry,Rr*2.4,DIM,.2*ap); ctx.globalAlpha=ap; ctx.beginPath(); ctx.arc(n.rx,n.ry,Rr*0.9,0,7); ctx.fillStyle='#b7ab8f'; ctx.fill(); ctx.globalAlpha=1; } }
 
     // object (deterministic) — flashes when it validates a result
     var of=Math.max(0,1-(now-OBJ.flash)/500); glow(OBJ.rx,OBJ.ry,16+12*of,ACC,.16+.4*of); var os=6.6;
-    ctx.fillStyle='#0d1018'; ctx.strokeStyle='rgba(210,222,255,.9)'; ctx.lineWidth=1.4; rr(OBJ.rx-os,OBJ.ry-os,os*2,os*2,2.5); ctx.fill(); ctx.stroke();
-    ctx.fillStyle='rgba(120,160,255,'+(0.7+0.3*of)+')'; ctx.fillRect(OBJ.rx-2.3,OBJ.ry-2.3,4.6,4.6);
+    ctx.fillStyle='#15130d'; ctx.strokeStyle='rgba(235,222,200,.9)'; ctx.lineWidth=1.4; rr(OBJ.rx-os,OBJ.ry-os,os*2,os*2,2.5); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='rgba(196,128,90,'+(0.7+0.3*of)+')'; ctx.fillRect(OBJ.rx-2.3,OBJ.ry-2.3,4.6,4.6);
     // core / supervisor — dispatches work, supervises agents
     var sf=Math.max(0,1-(now-supFlash)/600); glow(cx,cy,14+12*sf,ACC,.2+.4*sf);
     ctx.beginPath(); ctx.arc(cx,cy,4,0,7); ctx.fillStyle='#fff'; ctx.fill();
@@ -881,8 +882,8 @@ footer{border-top:1px solid var(--line);padding:46px 0 60px}
     T=performance.now(); var cx=.5*W, cy=.52*H; liveCount=10; ctx.clearRect(0,0,W,H);
     for(var i=0;i<MAXN;i++){ nodes[i].appear=(i<liveCount?1:0); nodes[i].rx=nodes[i].bx*W; nodes[i].ry=nodes[i].by*H; if(i<liveCount&&i%3===0){ nodes[i].work=true; nodes[i].bStart=T-700; nodes[i].bUntil=T+1200; } }
     OBJ.rx=OBJ.bx*W; OBJ.ry=OBJ.by*H;
-    for(var i=0;i<liveCount;i++){ var n=nodes[i]; if(n.work){ ctx.beginPath(); ctx.arc(n.rx,n.ry,4,0,7); ctx.fillStyle='#eef2ff'; ctx.fill(); ctx.beginPath(); ctx.arc(n.rx,n.ry,7,-1.5708,1.6); ctx.strokeStyle='rgba('+ACC+',.85)'; ctx.lineWidth=1.4; ctx.stroke(); } else { ctx.beginPath(); ctx.arc(n.rx,n.ry,3.6,0,7); ctx.fillStyle='#aebbe0'; ctx.fill(); } }
-    var os=6.6; ctx.fillStyle='#0d1018'; ctx.strokeStyle='rgba(210,222,255,.9)'; ctx.lineWidth=1.4; rr(OBJ.rx-os,OBJ.ry-os,os*2,os*2,2.5); ctx.fill(); ctx.stroke(); ctx.fillStyle='rgba(120,160,255,.8)'; ctx.fillRect(OBJ.rx-2.3,OBJ.ry-2.3,4.6,4.6);
+    for(var i=0;i<liveCount;i++){ var n=nodes[i]; if(n.work){ ctx.beginPath(); ctx.arc(n.rx,n.ry,4,0,7); ctx.fillStyle='#F1E7D4'; ctx.fill(); ctx.beginPath(); ctx.arc(n.rx,n.ry,7,-1.5708,1.6); ctx.strokeStyle='rgba('+ACC+',.85)'; ctx.lineWidth=1.4; ctx.stroke(); } else { ctx.beginPath(); ctx.arc(n.rx,n.ry,3.6,0,7); ctx.fillStyle='#b7ab8f'; ctx.fill(); } }
+    var os=6.6; ctx.fillStyle='#15130d'; ctx.strokeStyle='rgba(235,222,200,.9)'; ctx.lineWidth=1.4; rr(OBJ.rx-os,OBJ.ry-os,os*2,os*2,2.5); ctx.fill(); ctx.stroke(); ctx.fillStyle='rgba(196,128,90,.8)'; ctx.fillRect(OBJ.rx-2.3,OBJ.ry-2.3,4.6,4.6);
     ctx.beginPath(); ctx.arc(cx,cy,4,0,7); ctx.fillStyle='#fff'; ctx.fill(); ctx.strokeStyle='rgba('+ACC+',.8)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(cx,cy,7.5,0,7); ctx.stroke();
     hudN.textContent=liveCount;
   }); } else {
