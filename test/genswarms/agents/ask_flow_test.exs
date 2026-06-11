@@ -70,6 +70,39 @@ defmodule Genswarms.Agents.AskFlowTest do
     def interface(), do: %{}
   end
 
+  defmodule WeirdErrorHandler do
+    @behaviour Genswarms.Objects.ObjectHandler
+    @impl true
+    def init(_config), do: {:ok, %{}}
+    # An error whose code/message are NOT strings — upstream services do this.
+    @impl true
+    def handle_message(_from, _content, state),
+      do: {:reply, ~s({"error":{"code":{"upstream":502},"message":["bad","gateway"]}}), state}
+
+    @impl true
+    def interface(), do: %{}
+  end
+
+  defmodule ThrowingHandler do
+    @behaviour Genswarms.Objects.ObjectHandler
+    @impl true
+    def init(_config), do: {:ok, %{}}
+    @impl true
+    def handle_message(_from, _content, _state), do: throw(:tantrum)
+    @impl true
+    def interface(), do: %{}
+  end
+
+  defmodule ExitingHandler do
+    @behaviour Genswarms.Objects.ObjectHandler
+    @impl true
+    def init(_config), do: {:ok, %{}}
+    @impl true
+    def handle_message(_from, _content, _state), do: exit(:bailed)
+    @impl true
+    def interface(), do: %{}
+  end
+
   setup do
     swarm = "ask-flow-#{System.unique_integer([:positive])}"
     workspace = Path.join(System.tmp_dir!(), swarm)
@@ -84,7 +117,10 @@ defmodule Genswarms.Agents.AskFlowTest do
         %{name: :echo, handler: EchoHandler},
         %{name: :broken, handler: ErrorHandler},
         %{name: :silent, handler: SilentHandler},
-        %{name: :recorder, handler: RecorderHandler, config: %{test_pid: self()}}
+        %{name: :recorder, handler: RecorderHandler, config: %{test_pid: self()}},
+        %{name: :weird, handler: WeirdErrorHandler},
+        %{name: :thrower, handler: ThrowingHandler},
+        %{name: :exiter, handler: ExitingHandler}
       ],
       topology: [
         # back-edges present: these objects COULD reply asynchronously, which
@@ -97,7 +133,10 @@ defmodule Genswarms.Agents.AskFlowTest do
         {:alpha, :silent},
         {:silent, :alpha},
         # no back-edge: a plain send to the recorder arms nothing.
-        {:alpha, :recorder}
+        {:alpha, :recorder},
+        {:alpha, :weird},
+        {:alpha, :thrower},
+        {:alpha, :exiter}
       ]
     }
 
@@ -274,6 +313,57 @@ defmodule Genswarms.Agents.AskFlowTest do
     # routed as a send: consumed, and no reply file materialized anywhere
     assert Path.wildcard(Path.join(outbox, "*.json")) == []
     assert Path.wildcard(Path.join([ws, ".inbox", "replies", "*.json"])) == []
+  end
+
+  test "a non-stringable error code still yields a typed envelope and the object survives",
+       %{swarm: swarm, workspace: ws} do
+    # Review round 3 finding 5: normalize_error ran to_string/1 on the
+    # object's error fields OUTSIDE the handler rescue — a map code (e.g.
+    # {"error":{"code":{"upstream":502}}}) raised Protocol.UndefinedError,
+    # crashed the ObjectServer, and stranded the asker until timeout.
+    corr = "ask_weird_1"
+    Router.ask(swarm, :alpha, :weird, "anything", corr)
+
+    assert {:ok, env} = await_reply(ws, corr)
+    assert env["ok"] == false
+    assert is_binary(env["error"]["code"])
+    assert env["error"]["code"] =~ "upstream"
+
+    # the object lived through it: a follow-up ask is answered
+    corr2 = "ask_weird_2"
+    Router.ask(swarm, :alpha, :weird, "again", corr2)
+    assert {:ok, %{"ok" => false}} = await_reply(ws, corr2)
+  end
+
+  test "a handler that throws is a typed handler_error, not an ObjectServer crash",
+       %{swarm: swarm, workspace: ws} do
+    corr = "ask_throw_1"
+    Router.ask(swarm, :alpha, :thrower, "x", corr)
+
+    assert {:ok, env} = await_reply(ws, corr)
+    assert env["ok"] == false
+    assert env["error"]["code"] == "handler_error"
+    assert env["error"]["message"] =~ "tantrum"
+
+    # the object survives: a legitimate ask elsewhere still works
+    corr2 = "ask_after_throw"
+    Router.ask(swarm, :alpha, :echo, "ping", corr2)
+    assert {:ok, %{"ok" => true}} = await_reply(ws, corr2)
+  end
+
+  test "a handler that exits is a typed handler_error, not an ObjectServer crash",
+       %{swarm: swarm, workspace: ws} do
+    corr = "ask_exit_1"
+    Router.ask(swarm, :alpha, :exiter, "x", corr)
+
+    assert {:ok, env} = await_reply(ws, corr)
+    assert env["ok"] == false
+    assert env["error"]["code"] == "handler_error"
+    assert env["error"]["message"] =~ "bailed"
+
+    corr2 = "ask_after_exit"
+    Router.ask(swarm, :alpha, :echo, "ping", corr2)
+    assert {:ok, %{"ok" => true}} = await_reply(ws, corr2)
   end
 
   test "an ask to an agent (not an object) is a typed error", %{swarm: swarm, workspace: ws} do
