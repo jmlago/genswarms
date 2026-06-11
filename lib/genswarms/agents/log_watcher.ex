@@ -335,10 +335,14 @@ defmodule Genswarms.Agents.LogWatcher do
           # Routed via Router.ask so the object's reply is written to the
           # caller's reply file instead of arriving as a new turn. This clause
           # must precede the plain send clause (an ask also has to/content).
-          # The correlation id crossed the sandbox boundary — validate it
-          # before it can become a file name (path traversal).
+          # `"reply_to": null` is NOT an ask — pre-existing writers emit the
+          # field on plain sends — so nil falls through to the plain-send
+          # clause below instead of being dropped as an invalid ask (review
+          # round 3 finding 4). The correlation id crossed the sandbox
+          # boundary — validate it before it can become a file name (path
+          # traversal).
           {:ok, %{"to" => to, "content" => msg, "reply_to" => corr}}
-          when is_binary(to) and is_binary(msg) ->
+          when is_binary(to) and is_binary(msg) and not is_nil(corr) ->
             if Ask.valid_correlation_id?(corr) do
               Logger.info("[#{state.swarm_name}/#{state.agent_name}] Outbox ask → #{to}")
               Router.ask(state.swarm_name, state.agent_name, String.to_atom(to), msg, corr)
