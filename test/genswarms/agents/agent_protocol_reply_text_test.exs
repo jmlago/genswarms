@@ -1,7 +1,7 @@
-defmodule Genswarms.Agents.TurnOutputTest do
+defmodule Genswarms.Agents.AgentProtocolReplyTextTest do
   use ExUnit.Case, async: true
 
-  alias Genswarms.Agents.TurnOutput
+  alias Genswarms.Agents.AgentProtocol
 
   # Build the buffer exactly the way AgentServer accumulates it: the wrapper's
   # JSON lines arrive as {:eol, line} Port messages and are CONCATENATED with no
@@ -25,12 +25,12 @@ defmodule Genswarms.Agents.TurnOutputTest do
                {:json, %{"type" => "output", "content" => "a"}},
                {:json, %{"type" => "log", "content" => "[1] model..."}},
                {:json, %{"type" => "output", "content" => "b"}}
-             ] = TurnOutput.segments(buffer)
+             ] = AgentProtocol.segments(buffer)
     end
 
     test "braces and }{ inside JSON strings do not split objects" do
       buffer = wrapped([%{type: "output", content: ~s(a }{"fake":1} b)}])
-      assert [{:json, %{"content" => content}}] = TurnOutput.segments(buffer)
+      assert [{:json, %{"content" => content}}] = AgentProtocol.segments(buffer)
       assert content == ~s(a }{"fake":1} b)
     end
 
@@ -43,16 +43,16 @@ defmodule Genswarms.Agents.TurnOutputTest do
                {:json, %{"content" => "x"}},
                {:raw, "RAW"},
                {:json, %{"content" => "y"}}
-             ] = TurnOutput.segments(buffer)
+             ] = AgentProtocol.segments(buffer)
     end
 
     test "a truncated trailing object is kept as raw text" do
       buffer = Jason.encode!(%{type: "output", content: "x"}) <> ~s({"type":"outp)
-      assert [{:json, _}, {:raw, ~s({"type":"outp)}] = TurnOutput.segments(buffer)
+      assert [{:json, _}, {:raw, ~s({"type":"outp)}] = AgentProtocol.segments(buffer)
     end
 
     test "plain non-JSON buffer (mock backends) is one raw segment" do
-      assert [{:raw, "hello world"}] = TurnOutput.segments("hello world")
+      assert [{:raw, "hello world"}] = AgentProtocol.segments("hello world")
     end
   end
 
@@ -68,7 +68,7 @@ defmodule Genswarms.Agents.TurnOutputTest do
           %{type: "output", content: "<<TURN_COMPLETE>>"}
         ])
 
-      assert TurnOutput.reply_text(buffer) ==
+      assert AgentProtocol.reply_text(buffer) ==
                "From https://docs.example.com/:\nThe page is a navigation index."
     end
 
@@ -81,7 +81,7 @@ defmodule Genswarms.Agents.TurnOutputTest do
           %{type: "output", content: "<<TURN_COMPLETE>>"}
         ])
 
-      assert TurnOutput.reply_text(buffer) == "The answer."
+      assert AgentProtocol.reply_text(buffer) == "The answer."
     end
 
     test "send/broadcast/status/exit wrapper lines are mechanics, not reply text" do
@@ -93,7 +93,7 @@ defmodule Genswarms.Agents.TurnOutputTest do
           %{type: "exit", status: 0}
         ])
 
-      assert TurnOutput.reply_text(buffer) == "Done."
+      assert AgentProtocol.reply_text(buffer) == "Done."
     end
 
     test "a markdown blockquote in the reply survives prompt-stripping" do
@@ -103,7 +103,7 @@ defmodule Genswarms.Agents.TurnOutputTest do
           %{type: "output", content: "<<TURN_COMPLETE>>"}
         ])
 
-      assert TurnOutput.reply_text(buffer) == "> the docs say hello"
+      assert AgentProtocol.reply_text(buffer) == "> the docs say hello"
     end
 
     test "a turn with only mechanics yields the empty string" do
@@ -114,21 +114,21 @@ defmodule Genswarms.Agents.TurnOutputTest do
           %{type: "output", content: "<<TURN_COMPLETE>>"}
         ])
 
-      assert TurnOutput.reply_text(buffer) == ""
+      assert AgentProtocol.reply_text(buffer) == ""
     end
 
     test "plain-text buffers (mock backend) pass through with markers stripped" do
-      assert TurnOutput.reply_text("hello<<TURN_COMPLETE>>") == "hello"
+      assert AgentProtocol.reply_text("hello<<TURN_COMPLETE>>") == "hello"
     end
 
     test "invalid UTF-8 bytes never raise (wrapper-less backends can emit them)" do
       # an agent cat-ing a binary file on a raw backend
       buffer = "before " <> <<0xFF, 0xFE, 0x80>> <> " after<<TURN_COMPLETE>>"
-      assert is_binary(TurnOutput.reply_text(buffer))
+      assert is_binary(AgentProtocol.reply_text(buffer))
 
       # invalid bytes inside a JSON-ish object too
       buffer2 = ~s({"type":"output","content":") <> <<0xC3>> <> ~s("})
-      assert is_binary(TurnOutput.reply_text(buffer2))
+      assert is_binary(AgentProtocol.reply_text(buffer2))
     end
   end
 end

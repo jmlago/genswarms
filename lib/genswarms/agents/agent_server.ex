@@ -13,7 +13,7 @@ defmodule Genswarms.Agents.AgentServer do
   use GenServer
   require Logger
 
-  alias Genswarms.Agents.{AgentProtocol, Ask, Inbox, TurnOutput}
+  alias Genswarms.Agents.{AgentProtocol, Ask, Inbox}
   alias Genswarms.Observability.LogStore
   alias Genswarms.Config.SwarmConfig
   alias Genswarms.Objects.ObjectServer
@@ -48,7 +48,7 @@ defmodule Genswarms.Agents.AgentServer do
     last_activity: nil,
     # --- reply auto-delivery (genswarms#53 G2) ---
     # When `reply_to` (agent config) names an object, the turn's derived reply
-    # text (TurnOutput.reply_text/1) is delivered there once per turn — unless
+    # text (AgentProtocol.reply_text/1) is delivered there once per turn — unless
     # the agent already explicitly sent to that target during that turn. A
     # COMPLETED turn's delivery is never invalidated by the next turn starting
     # (its text answers its own message); only a wall-clock-expired turn is
@@ -815,16 +815,13 @@ defmodule Genswarms.Agents.AgentServer do
       (String.ends_with?(full_data, "> ") or full_data == "> ") and state.state == :starting
 
     if turn_complete or initial_idle do
-      # Keep the raw turn output: reply-text derivation (G2) owns the stdout
-      # grammar and does its own marker/prompt stripping.
+      # Keep the raw turn output: reply-text derivation (G2) does its own
+      # marker/prompt stripping (AgentProtocol owns the stdout grammar).
       raw_turn = full_data
       working_turn? = turn_complete and state.state == :working
 
       # Remove markers from output before processing
-      full_data =
-        full_data
-        |> String.replace("<<TURN_COMPLETE>>", "")
-        |> String.replace(~r/\n?> $/, "")
+      full_data = AgentProtocol.strip_turn_markers(full_data)
 
       # Log stdout output to LogStore
       unless full_data == "" or String.trim(full_data) == "" do
@@ -1033,7 +1030,7 @@ defmodule Genswarms.Agents.AgentServer do
   end
 
   defp schedule_auto_deliver(state, raw_turn) do
-    case TurnOutput.reply_text(raw_turn) do
+    case AgentProtocol.reply_text(raw_turn) do
       "" ->
         emit_telemetry(:no_final_text, state, %{turn: state.turn_seq})
         state

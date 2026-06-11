@@ -208,4 +208,140 @@ defmodule Genswarms.Agents.AgentProtocol do
   defp maybe_to_atom(nil), do: nil
   defp maybe_to_atom(s) when is_binary(s), do: String.to_atom(s)
   defp maybe_to_atom(a) when is_atom(a), do: a
+
+  # ── turn stdout grammar ─────────────────────────────────────────────────────
+  # This module is the SINGLE owner of the agent-stdout grammar: the SWARM_MSG
+  # markers above, and the turn mechanics below (<<TURN_COMPLETE>>, the idle
+  # "> " prompt, and the wrapper's one-JSON-object-per-line stream).
+
+  @doc """
+  Strips turn-lifecycle mechanics — `<<TURN_COMPLETE>>` markers and a trailing
+  idle prompt — from accumulated turn output, for logging and message parsing.
+  """
+  @spec strip_turn_markers(String.t()) :: String.t()
+  def strip_turn_markers(output) do
+    output
+    |> String.replace("<<TURN_COMPLETE>>", "")
+    |> String.replace(~r/\n?> $/, "")
+  end
+
+  @doc """
+  The turn's reply text: harness stdout minus protocol mechanics. `""` when the
+  turn produced no user-facing text.
+
+  The wrapper (`priv/szc-wrapper-fifo.sh`) emits one JSON object per line of
+  the harness's stdout — `{"type":"output","content":"..."}` — and tags harness
+  stderr (per-call banners, diagnostics) as `{"type":"log",...}`. The
+  AgentServer accumulates these into a single per-turn buffer, so the buffer is
+  a sequence of back-to-back JSON objects, possibly with raw text in between
+  (mock/test backends write plain text). This reconstructs the harness's stdout
+  for the turn — the `"output"`-typed contents in order, plus any raw non-JSON
+  segments — and strips `<<TURN_COMPLETE>>` markers and bare `> ` prompts.
+  Because the harness prints the model's text only when the model finishes (and
+  its progress banners go to stderr), what remains IS the turn's final answer.
+
+  Total: invalid UTF-8 (a harness `cat`ing a binary file on a wrapper-less
+  backend) is handled byte-wise by the scanner, and any unforeseen failure
+  degrades to `""` — which the caller surfaces as `no_final_text` — instead of
+  crashing the AgentServer mid-turn.
+  """
+  @spec reply_text(binary()) :: String.t()
+  def reply_text(buffer) when is_binary(buffer) do
+    buffer
+    |> segments()
+    |> Enum.flat_map(&segment_text/1)
+    |> Enum.join("\n")
+    |> clean_turn_text()
+  rescue
+    _ -> ""
+  end
+
+  @doc """
+  Split a buffer into `{:json, map}` and `{:raw, text}` segments. Top-level
+  JSON objects are found with a depth/string-aware scan (the buffer is
+  CONCATENATED objects — `}{"` boundaries — not a JSON array, and object
+  contents may contain braces inside strings). An undecodable `{...}` span is
+  kept as raw text rather than dropped. Public for tests.
+  """
+  @spec segments(String.t()) :: [{:json, map()} | {:raw, String.t()}]
+  def segments(buffer) do
+    scan(buffer, [], "")
+  end
+
+  # Byte-wise on purpose: the buffer may contain invalid UTF-8 (raw backends,
+  # binary output). All the scanner compares are ASCII bytes ({ } " \), which
+  # never appear inside multi-byte UTF-8 sequences, so byte matching is both
+  # total and correct.
+
+  defp scan("", acc, raw), do: Enum.reverse(flush_raw(acc, raw))
+
+  defp scan(<<"{", _::binary>> = rest, acc, raw) do
+    case take_object(rest, 0, false, false, "") do
+      {:ok, object, remainder} ->
+        seg =
+          case Jason.decode(object) do
+            {:ok, map} when is_map(map) -> {:json, map}
+            _ -> {:raw, object}
+          end
+
+        scan(remainder, [seg | flush_raw(acc, raw)], "")
+
+      :incomplete ->
+        # Unbalanced braces to end-of-buffer (e.g. a truncated final chunk) —
+        # keep the tail as raw text so nothing is silently dropped.
+        Enum.reverse(flush_raw(flush_raw(acc, raw), rest))
+    end
+  end
+
+  defp scan(<<ch, rest::binary>>, acc, raw),
+    do: scan(rest, acc, raw <> <<ch>>)
+
+  defp flush_raw(acc, ""), do: acc
+  defp flush_raw(acc, raw), do: [{:raw, raw} | acc]
+
+  # take_object(buffer, depth, in_string?, escaped?, taken)
+  defp take_object("", _depth, _in_s, _esc, _taken), do: :incomplete
+
+  defp take_object(<<ch, rest::binary>>, depth, in_s, esc, taken) do
+    taken = taken <> <<ch>>
+
+    cond do
+      esc -> take_object(rest, depth, in_s, false, taken)
+      in_s and ch == ?\\ -> take_object(rest, depth, true, true, taken)
+      in_s and ch == ?" -> take_object(rest, depth, false, false, taken)
+      in_s -> take_object(rest, depth, true, false, taken)
+      ch == ?" -> take_object(rest, depth, true, false, taken)
+      ch == ?{ -> take_object(rest, depth + 1, false, false, taken)
+      ch == ?} and depth == 1 -> {:ok, taken, rest}
+      ch == ?} -> take_object(rest, depth - 1, false, false, taken)
+      true -> take_object(rest, depth, false, false, taken)
+    end
+  end
+
+  # Harness stdout lines. Everything else from the wrapper is mechanics:
+  # "log" (stderr diagnostics), "send"/"broadcast" (routed separately),
+  # "status"/"exit"/"error" (lifecycle).
+  defp segment_text({:json, %{"type" => "output", "content" => content}})
+       when is_binary(content),
+       do: [content]
+
+  defp segment_text({:json, _}), do: []
+  defp segment_text({:raw, text}), do: [text]
+
+  defp clean_turn_text(text) do
+    text
+    |> String.replace("<<TURN_COMPLETE>>", "")
+    |> String.trim()
+    |> strip_prompt()
+    |> String.trim()
+  end
+
+  # The harness prints its input prompt as "> " with no trailing newline, so it
+  # is consumed at the START of the NEXT turn's first output line ("> From
+  # https://..."). Exactly one pending prompt can be glued there — strip exactly
+  # one, from the head of the turn text only, so a reply that legitimately
+  # begins with a markdown "> quote" survives ("> > quote" → "> quote").
+  defp strip_prompt("> " <> rest), do: rest
+  defp strip_prompt(">"), do: ""
+  defp strip_prompt(text), do: text
 end
