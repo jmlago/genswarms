@@ -56,11 +56,14 @@ defmodule Genswarms.Agents.AgentServer do
     reply_to: nil,
     reply_grace_ms: 1_000,
     turn_seq: 0,
-    # target => turn_seq at the time of the agent's last explicit send to it.
-    # Deliberately NOT reset per turn: a pending delivery for turn N must be
-    # suppressible even after turn N+1 has begun (bounded: one entry per
-    # distinct send target).
-    turn_sends: %{},
+    # Set of {target, turn_seq} marks: the agent explicitly sent to `target`
+    # during turn `turn_seq` ({:__broadcast__, seq} marks a broadcast, which
+    # reaches the sink too if it's in the topology). Attribution is exact: the
+    # synchronous outbox sweep at TURN_COMPLETE stamps turn N's sends with N
+    # even though the next turn may begin in the same handle_info. Pruned as
+    # pending deliveries consume them (bounded). Survives turn transitions by
+    # design — a pending delivery for turn N is checked after N+1 has begun.
+    turn_sends: MapSet.new(),
     # --- per-turn wall clock (genswarms#53 G3) ---
     # `turn_timeout_ms` (agent config) bounds a single turn end-to-end. On
     # expiry the turn is marked expired (telemetry :turn_timeout) and a LATE
@@ -279,9 +282,9 @@ defmodule Genswarms.Agents.AgentServer do
       started_at: DateTime.utc_now(),
       # G2 opt-in: deliver each turn's final text to this object automatically.
       reply_to: agent_config |> Map.get(:reply_to) |> normalize_reply_to(),
-      reply_grace_ms: Map.get(agent_config, :reply_grace_ms, 1_000),
+      reply_grace_ms: positive_int(agent_config, :reply_grace_ms, 1_000),
       # G3 opt-in: per-turn wall clock.
-      turn_timeout_ms: Map.get(agent_config, :turn_timeout_ms)
+      turn_timeout_ms: positive_int(agent_config, :turn_timeout_ms, nil)
     }
 
     # Start backend asynchronously
@@ -422,23 +425,31 @@ defmodule Genswarms.Agents.AgentServer do
   # turn's reply text to the configured reply sink. A completed turn's answer
   # stays valid even if the next turn has already begun (it answers its own
   # message; rapid follow-ups must not lose replies). The ONLY suppression is
-  # an explicit send to the sink noted at-or-after that turn began — the
-  # agent already delivered this answer itself, don't double it. (Expired
-  # turns were never scheduled; see schedule_auto_deliver.)
+  # an explicit send (or broadcast) the agent itself made DURING that exact
+  # turn — exact {target, seq} match, stamped by the synchronous sweep, so a
+  # send in one turn can never eat a different turn's answer. Consumed marks
+  # are pruned. (Expired turns were never scheduled; see schedule_auto_deliver.)
   def handle_info({:auto_deliver, seq, text}, state) do
-    if Map.get(state.turn_sends, state.reply_to, -1) >= seq do
-      emit_telemetry(:auto_deliver_skipped, state, %{reason: :explicit_send, turn: seq})
-    else
-      # Delivered DIRECTLY to the sink object, not via Router.route: the
-      # target is operator configuration (agent config), not model output,
-      # so topology validation adds nothing — and routing would arm the
-      # async-reply ordering guard if the sink had a back-edge, gating the
-      # agent's inbox for a delivery that expects no reply.
-      ObjectServer.deliver_message(state.swarm_name, state.reply_to, state.name, text)
-      emit_telemetry(:auto_delivered, state, %{turn: seq, bytes: byte_size(text)})
-    end
+    explicit? =
+      MapSet.member?(state.turn_sends, {state.reply_to, seq}) or
+        MapSet.member?(state.turn_sends, {:__broadcast__, seq})
 
-    {:noreply, state}
+    state =
+      if explicit? do
+        emit_telemetry(:auto_deliver_skipped, state, %{reason: :explicit_send, turn: seq})
+        state
+      else
+        deliver_to_sink(state, seq, text)
+      end
+
+    # Prune everything this turn could still consume — marks for seqs <= this
+    # one are spent (deliveries fire in seq order).
+    pruned =
+      state.turn_sends
+      |> Enum.reject(fn {_target, s} -> s <= seq end)
+      |> MapSet.new()
+
+    {:noreply, %{state | turn_sends: pruned}}
   end
 
   def handle_info(msg, state) do
@@ -450,12 +461,17 @@ defmodule Genswarms.Agents.AgentServer do
   def handle_call({:send_task, task}, _from, state) do
     case state.state do
       s when s in [:idle, :working] ->
-        # If the agent is waiting for an async object reply, queue the task in
-        # the Inbox instead of forwarding it to the backend.  It will be
-        # released (in order) via maybe_process_inbox/1 after the reply turn
-        # completes.  This prevents rapid follow-up user messages from
-        # interleaving with in-flight async replies and mis-correlating turns.
-        if state.awaiting_reply do
+        # Queue the task in the Inbox instead of forwarding it to the backend
+        # when the agent is (a) waiting for an async object reply, or (b) still
+        # WORKING on a previous turn. (b) makes turns strictly serial: the old
+        # behavior wrote the task straight into the backend's stdin FIFO mid-
+        # turn, which broke turn accounting — the in-flight turn's output was
+        # attributed to the new sequence, and the queued task's own completion
+        # arrived with the agent already :idle, so its reply was never
+        # auto-delivered and no telemetry fired. Queued tasks are released (in
+        # order) via maybe_process_inbox/1 on the next TURN_COMPLETE; the
+        # backend sees the same serial order it always effectively processed.
+        if state.awaiting_reply or state.state == :working do
           history_entry = %{
             type: :task,
             content: task,
@@ -470,7 +486,7 @@ defmodule Genswarms.Agents.AgentServer do
                }) do
             {:ok, new_inbox} ->
               Logger.debug(
-                "[#{state.swarm_name}/#{state.name}] Task queued in Inbox (awaiting reply)"
+                "[#{state.swarm_name}/#{state.name}] Task queued in Inbox (#{if state.awaiting_reply, do: "awaiting reply", else: "turn in progress"})"
               )
 
               {:reply, :ok, %{state | inbox: new_inbox, history: [history_entry | state.history]}}
@@ -717,8 +733,11 @@ defmodule Genswarms.Agents.AgentServer do
     {:noreply, %{state | awaiting_reply: false, awaiting_since: nil, awaiting_timer_ref: nil}}
   end
 
+  # Periodic-poll path: a send observed while the turn is still in flight
+  # belongs to the current turn (files that survive to the turn boundary are
+  # consumed by the synchronous sweep instead, with exact attribution).
   def handle_cast({:note_agent_send, to}, state) do
-    {:noreply, %{state | turn_sends: Map.put(state.turn_sends, to, state.turn_seq)}}
+    {:noreply, %{state | turn_sends: MapSet.put(state.turn_sends, {to, state.turn_seq})}}
   end
 
   # Answer to one of this agent's asks: write the envelope where the blocked
@@ -854,10 +873,21 @@ defmodule Genswarms.Agents.AgentServer do
           }
         end)
 
-      # Legacy stdout-protocol sends (parsed above) count as this turn's
-      # explicit sends too; outbox-file sends are recorded by the LogWatcher
-      # via note_agent_send/3.
-      legacy_sends = for %{type: :send, to: to} <- messages, into: %{}, do: {to, state.turn_seq}
+      # This turn's explicit sends, with EXACT attribution to this turn's seq:
+      #   - legacy stdout-protocol sends parsed above;
+      #   - outbox files swept SYNCHRONOUSLY right now — the agent cannot
+      #     write more files after emitting <<TURN_COMPLETE>>, so everything
+      #     on disk belongs to this turn. This is what makes auto-delivery
+      #     suppression independent of the watcher's poll latency (the racy
+      #     async note path only covers sends observed mid-turn).
+      legacy_sends = for %{type: :send, to: to} <- messages, do: {to, state.turn_seq}
+
+      swept_sends =
+        if working_turn? and state.reply_to != nil do
+          for to <- sweep_outbox(state), do: {to, state.turn_seq}
+        else
+          []
+        end
 
       # The turn ended — its wall clock (if any) is done.
       if state.turn_timer_ref, do: Process.cancel_timer(state.turn_timer_ref)
@@ -869,7 +899,7 @@ defmodule Genswarms.Agents.AgentServer do
           message_count: state.message_count + length(messages),
           history: history_entries ++ state.history,
           last_activity: DateTime.utc_now(),
-          turn_sends: Map.merge(state.turn_sends, legacy_sends),
+          turn_sends: MapSet.union(state.turn_sends, MapSet.new(legacy_sends ++ swept_sends)),
           turn_timer_ref: nil
       }
 
@@ -893,6 +923,52 @@ defmodule Genswarms.Agents.AgentServer do
 
   # ── G2 reply auto-delivery helpers ──────────────────────────────────────────
 
+  # Deliver to the sink, verifying it actually is a live OBJECT first: agents
+  # and objects share the Registry keyspace, so a typo'd or agent-typed
+  # reply_to would otherwise silently no-op (while telemetry claimed delivery)
+  # or inject the text into another AGENT — bypassing topology entirely and
+  # enabling unbounded agent↔agent loops.
+  defp deliver_to_sink(state, seq, text) do
+    case Registry.lookup(Genswarms.AgentRegistry, {state.swarm_name, state.reply_to}) do
+      [{_pid, :object}] ->
+        # Delivered DIRECTLY to the sink object, not via Router.route: the
+        # target is operator configuration (agent config), not model output,
+        # so topology validation adds nothing — and routing would arm the
+        # async-reply ordering guard if the sink had a back-edge, gating the
+        # agent's inbox for a delivery that expects no reply.
+        ObjectServer.deliver_message(state.swarm_name, state.reply_to, state.name, text)
+        emit_telemetry(:auto_delivered, state, %{turn: seq, bytes: byte_size(text)})
+        state
+
+      other ->
+        reason = if other == [], do: :sink_not_found, else: :sink_not_an_object
+
+        Logger.warning(
+          "[#{state.swarm_name}/#{state.name}] reply_to #{inspect(state.reply_to)} #{reason} — reply NOT delivered"
+        )
+
+        emit_telemetry(:auto_deliver_failed, state, %{reason: reason, turn: seq})
+        state
+    end
+  end
+
+  # Synchronously drain this agent's .outbox via its LogWatcher, returning the
+  # routed plain-send targets so the caller can stamp them with the turn they
+  # belong to. Best-effort: a dead/slow watcher degrades to the async note
+  # path rather than blocking the turn.
+  defp sweep_outbox(%{log_watcher: watcher} = state) when is_pid(watcher) do
+    Genswarms.Agents.LogWatcher.sweep_outbox(watcher)
+  catch
+    kind, reason ->
+      Logger.warning(
+        "[#{state.swarm_name}/#{state.name}] outbox sweep failed (#{kind}: #{inspect(reason)}) — falling back to async send notes"
+      )
+
+      []
+  end
+
+  defp sweep_outbox(_state), do: []
+
   # A new piece of work is being handed to the backend: a new turn begins.
   # Bump the sequence and arm the per-turn wall clock if configured.
   # `turn_sends` is deliberately NOT reset here: a COMPLETED previous turn may
@@ -909,12 +985,36 @@ defmodule Genswarms.Agents.AgentServer do
         Process.send_after(self(), {:turn_timeout, seq}, state.turn_timeout_ms)
       end
 
-    %{state | turn_seq: seq, turn_timer_ref: timer_ref, turn_expired: false}
+    # Drop any stale buffered output (harness startup banners and similar
+    # idle-time noise) so it can't leak into this turn's derived reply text.
+    # Turns are serial (a task arriving mid-turn queues in the Inbox), so
+    # nothing in-flight is ever discarded here.
+    %{state | buffer: "", turn_seq: seq, turn_timer_ref: timer_ref, turn_expired: false}
   end
 
   defp normalize_reply_to(nil), do: nil
   defp normalize_reply_to(name) when is_atom(name), do: name
   defp normalize_reply_to(name) when is_binary(name), do: String.to_atom(name)
+
+  # Config timing values must be positive integers; anything else would crash
+  # Process.send_after on the FIRST task — as a restart loop. Warn and fall
+  # back to the default instead.
+  defp positive_int(config, key, default) do
+    case Map.get(config, key, default) do
+      nil ->
+        default
+
+      n when is_integer(n) and n > 0 ->
+        n
+
+      bad ->
+        Logger.warning(
+          "agent config #{key}=#{inspect(bad)} is not a positive integer — using #{inspect(default)}"
+        )
+
+        default
+    end
+  end
 
   # Derive the turn's reply text and schedule its delivery after the grace
   # window. The grace exists for one reason: an explicit outbox send written

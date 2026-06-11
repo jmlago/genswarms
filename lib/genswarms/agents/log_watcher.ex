@@ -17,6 +17,19 @@ defmodule Genswarms.Agents.LogWatcher do
     GenServer.start_link(__MODULE__, opts)
   end
 
+  @doc """
+  Synchronously drain the agent's `.outbox/` now, routing every pending file,
+  and return the targets of the plain sends that were routed (`:__broadcast__`
+  for broadcasts; asks are not included). Called by the AgentServer at
+  TURN_COMPLETE so the turn's explicit sends are attributed to the turn they
+  belong to — the agent cannot write more files after the turn marker, so
+  everything drained here is that turn's (this is what de-races auto-delivery
+  suppression from the 500ms poll).
+  """
+  def sweep_outbox(pid, timeout \\ 4_000) do
+    GenServer.call(pid, :sweep_outbox, timeout)
+  end
+
   def init(opts) do
     swarm_name = Keyword.fetch!(opts, :swarm_name)
     agent_name = Keyword.fetch!(opts, :agent_name)
@@ -39,6 +52,11 @@ defmodule Genswarms.Agents.LogWatcher do
     new_state = state |> poll_logs() |> poll_outbox()
     Process.send_after(self(), :poll, @poll_interval)
     {:noreply, new_state}
+  end
+
+  def handle_call(:sweep_outbox, _from, state) do
+    {targets, new_state} = drain_outbox(state)
+    {:reply, targets, new_state}
   end
 
   defp poll_logs(state) do
@@ -237,33 +255,49 @@ defmodule Genswarms.Agents.LogWatcher do
   # This eliminates the need for swarm-msg send in agent skills.
 
   defp poll_outbox(state) do
+    {_targets, new_state} = drain_outbox(state)
+    new_state
+  end
+
+  # Drain every pending outbox file, returning the routed targets
+  # (`:__broadcast__` for broadcasts; asks excluded) for sweep_outbox callers.
+  defp drain_outbox(state) do
     workspace = Map.get(state, :workspace)
 
     if workspace do
       outbox_dir = Path.join(Path.expand(workspace), ".outbox")
-      do_poll_outbox(outbox_dir, state)
+      do_drain_outbox(outbox_dir, state)
     else
-      state
+      {[], state}
     end
   end
 
-  defp do_poll_outbox(outbox_dir, state) do
+  defp do_drain_outbox(outbox_dir, state) do
     case File.ls(outbox_dir) do
       {:ok, files} ->
-        files
-        |> Enum.filter(&String.ends_with?(&1, ".json"))
-        |> Enum.sort()
-        |> Enum.each(fn filename ->
-          process_outbox_file(Path.join(outbox_dir, filename), state)
-        end)
+        targets =
+          files
+          |> Enum.filter(&String.ends_with?(&1, ".json"))
+          |> Enum.sort()
+          |> Enum.flat_map(fn filename ->
+            case process_outbox_file(Path.join(outbox_dir, filename), state) do
+              {:routed, target} -> [target]
+              _ -> []
+            end
+          end)
 
-        state
+        {targets, state}
 
       {:error, _} ->
-        state
+        {[], state}
     end
   end
 
+  # Returns {:routed, target} for a plain send ({:routed, :__broadcast__} for
+  # a broadcast) so sweep_outbox can attribute explicit sends to the turn that
+  # just completed; :ok otherwise. Binary guards on to/content/corr: these
+  # values come from inside the agent sandbox, and a non-binary would
+  # otherwise crash the Router (String.slice on a map) or mint garbage atoms.
   defp process_outbox_file(file_path, state) do
     case File.read(file_path) do
       {:ok, content} ->
@@ -274,7 +308,8 @@ defmodule Genswarms.Agents.LogWatcher do
           # must precede the plain send clause (an ask also has to/content).
           # The correlation id crossed the sandbox boundary — validate it
           # before it can become a file name (path traversal).
-          {:ok, %{"to" => to, "content" => msg, "reply_to" => corr}} ->
+          {:ok, %{"to" => to, "content" => msg, "reply_to" => corr}}
+          when is_binary(to) and is_binary(msg) ->
             if Ask.valid_correlation_id?(corr) do
               Logger.info("[#{state.swarm_name}/#{state.agent_name}] Outbox ask → #{to}")
               Router.ask(state.swarm_name, state.agent_name, String.to_atom(to), msg, corr)
@@ -285,8 +320,9 @@ defmodule Genswarms.Agents.LogWatcher do
             end
 
             File.rm(file_path)
+            :ok
 
-          {:ok, %{"to" => to, "content" => msg}} ->
+          {:ok, %{"to" => to, "content" => msg}} when is_binary(to) and is_binary(msg) ->
             Logger.info("[#{state.swarm_name}/#{state.agent_name}] Outbox → #{to}")
             target = String.to_atom(to)
             # Record the explicit send BEFORE routing so reply auto-delivery
@@ -294,11 +330,16 @@ defmodule Genswarms.Agents.LogWatcher do
             AgentServer.note_agent_send(state.swarm_name, state.agent_name, target)
             Router.route(state.swarm_name, state.agent_name, target, msg)
             File.rm(file_path)
+            {:routed, target}
 
-          {:ok, %{"broadcast" => true, "content" => msg}} ->
+          {:ok, %{"broadcast" => true, "content" => msg}} when is_binary(msg) ->
             Logger.info("[#{state.swarm_name}/#{state.agent_name}] Outbox broadcast")
+            # A broadcast reaches the reply sink too (if it's in the topology),
+            # so it counts as an explicit send for auto-delivery suppression.
+            AgentServer.note_agent_send(state.swarm_name, state.agent_name, :__broadcast__)
             Router.broadcast(state.swarm_name, state.agent_name, msg)
             File.rm(file_path)
+            {:routed, :__broadcast__}
 
           _ ->
             Logger.warning(
@@ -306,6 +347,7 @@ defmodule Genswarms.Agents.LogWatcher do
             )
 
             File.rm(file_path)
+            :ok
         end
 
       {:error, _} ->

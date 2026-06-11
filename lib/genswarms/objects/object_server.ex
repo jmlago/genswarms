@@ -711,41 +711,32 @@ defmodule Genswarms.Objects.ObjectServer do
     started = System.monotonic_time(:millisecond)
 
     {response, handler_state} =
-      case state.handler.handle_message(from, content, state.handler_state) do
-        {:reply, response, handler_state} ->
-          {response, handler_state}
+      try do
+        run_ask_handler(from, content, state)
+      rescue
+        e ->
+          # A raising handler must not strand the asker for its full timeout
+          # (nor crash this object): answer with a typed error. The handler
+          # state is unchanged — the failed call never produced a new one.
+          Logger.error(
+            "[#{state.swarm_name}/#{state.name}] ask handler raised: #{Exception.message(e)}"
+          )
 
-        {:send, to, message, handler_state} ->
-          route_message(state.swarm_name, state.name, to, message)
-          {nil, handler_state}
-
-        {:broadcast, message, handler_state} ->
-          Router.broadcast(state.swarm_name, state.name, message)
-          {nil, handler_state}
-
-        {:noreply, handler_state} ->
-          {nil, handler_state}
-
-        {:multi, messages, handler_state} ->
-          Enum.each(messages, fn
-            {:send, to, msg} -> route_message(state.swarm_name, state.name, to, msg)
-            {:broadcast, msg} -> Router.broadcast(state.swarm_name, state.name, msg)
-          end)
-
-          {nil, handler_state}
-
-        {:send_many, messages, handler_state} ->
-          Enum.each(messages, fn
-            {:send, to, msg} -> route_message(state.swarm_name, state.name, to, msg)
-            {:broadcast, msg} -> Router.broadcast(state.swarm_name, state.name, msg)
-            {to, msg} -> route_message(state.swarm_name, state.name, to, msg)
-          end)
-
-          {nil, handler_state}
+          {{:handler_error, Exception.message(e)}, state.handler_state}
       end
 
     duration_ms = System.monotonic_time(:millisecond) - started
-    ask_reply(state, from, corr, Ask.envelope(response, corr, duration_ms))
+
+    envelope =
+      case response do
+        {:handler_error, message} ->
+          Ask.error_envelope(corr, "handler_error", message, "unknown")
+
+        response ->
+          Ask.envelope(response, corr, duration_ms)
+      end
+
+    ask_reply(state, from, corr, envelope)
 
     {:noreply,
      %{
@@ -754,6 +745,46 @@ defmodule Genswarms.Objects.ObjectServer do
          state: :idle,
          message_count: state.message_count + 1
      }}
+  end
+
+  defp run_ask_handler(from, content, state) do
+    case state.handler.handle_message(from, content, state.handler_state) do
+      {:reply, response, handler_state} ->
+        {response, handler_state}
+
+      {:send, to, message, handler_state} ->
+        route_message(state.swarm_name, state.name, to, message)
+        {nil, handler_state}
+
+      {:broadcast, message, handler_state} ->
+        Router.broadcast(state.swarm_name, state.name, message)
+        {nil, handler_state}
+
+      {:noreply, handler_state} ->
+        {nil, handler_state}
+
+      {:multi, messages, handler_state} ->
+        Enum.each(messages, fn
+          {:send, to, msg} -> route_message(state.swarm_name, state.name, to, msg)
+          {:broadcast, msg} -> Router.broadcast(state.swarm_name, state.name, msg)
+        end)
+
+        {nil, handler_state}
+
+      {:send_many, messages, handler_state} ->
+        Enum.each(messages, fn
+          {:send, to, msg} -> route_message(state.swarm_name, state.name, to, msg)
+          {:broadcast, msg} -> Router.broadcast(state.swarm_name, state.name, msg)
+          {to, msg} -> route_message(state.swarm_name, state.name, to, msg)
+        end)
+
+        {nil, handler_state}
+
+      other ->
+        # An unknown return shape would otherwise CaseClauseError and strand
+        # the asker for its full timeout.
+        {{:handler_error, "unexpected handler return: #{inspect(other)}"}, state.handler_state}
+    end
   end
 
   # Hand the envelope to the asking agent's server, which owns the workspace

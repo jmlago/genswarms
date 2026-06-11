@@ -38,8 +38,9 @@ defmodule Genswarms.Agents.Ask do
 
   # Correlation ids come from inside the agent sandbox, and they become file
   # names — accept only a conservative charset so a compromised agent cannot
-  # traverse out of its own replies dir (e.g. "../../...").
-  @corr_re ~r/^[A-Za-z0-9._-]{1,128}$/
+  # traverse out of its own replies dir (e.g. "../../..."). \A/\z, not ^/$:
+  # $ matches before a trailing newline, which would smuggle "abc\n" through.
+  @corr_re ~r/\A[A-Za-z0-9._-]{1,128}\z/
 
   @doc """
   Whether a correlation id is safe to use as a reply file name.
@@ -100,20 +101,8 @@ defmodule Genswarms.Agents.Ask do
     do: envelope(inspect(response), corr, duration_ms)
 
   defp wrap_decoded(decoded, corr, duration_ms) do
-    case decoded do
-      %{} = map when is_map_key(map, "error") or is_map_key(map, :error) ->
-        err = Map.get(map, "error", Map.get(map, :error))
-
-        %{
-          ok: false,
-          result: decoded,
-          error: normalize_error(err),
-          timeout: false,
-          correlation_id: corr,
-          duration_ms: duration_ms
-        }
-
-      _ ->
+    case error_value(decoded) do
+      nil ->
         %{
           ok: true,
           result: decoded,
@@ -122,8 +111,31 @@ defmodule Genswarms.Agents.Ask do
           correlation_id: corr,
           duration_ms: duration_ms
         }
+
+      err ->
+        %{
+          ok: false,
+          result: decoded,
+          error: normalize_error(err),
+          timeout: false,
+          correlation_id: corr,
+          duration_ms: duration_ms
+        }
     end
   end
+
+  # A truthy top-level "error" marks a failed reply. `"error": null`/`false`
+  # (the common JSON-RPC success shape — and this module's own envelopes) is
+  # success, not an error.
+  defp error_value(%{} = map) do
+    case Map.get(map, "error", Map.get(map, :error)) do
+      nil -> nil
+      false -> nil
+      err -> err
+    end
+  end
+
+  defp error_value(_), do: nil
 
   @doc """
   Build an engine-generated failure envelope (route denied, target missing,
@@ -165,12 +177,44 @@ defmodule Genswarms.Agents.Ask do
         with :ok <- File.mkdir_p(dir),
              :ok <- File.write(tmp, Jason.encode!(envelope)),
              :ok <- File.rename(tmp, final) do
+          prune_stale(dir)
           :ok
         else
           {:error, reason} = error ->
             Logger.warning("ask: failed to write reply #{corr}: #{inspect(reason)}")
             error
         end
+    end
+  end
+
+  # Replies that landed after their asker's timeout are never read — sweep
+  # anything older than an hour so the directory doesn't creep on chatty
+  # agents with flaky objects. Best-effort by design.
+  @stale_after_seconds 3_600
+  defp prune_stale(dir) do
+    cutoff = System.os_time(:second) - @stale_after_seconds
+
+    case File.ls(dir) do
+      {:ok, files} ->
+        for f <- files,
+            path = Path.join(dir, f),
+            match?({:ok, %{mtime: mtime}} when mtime < cutoff, stat_seconds(path)) do
+          File.rm(path)
+        end
+
+        :ok
+
+      _ ->
+        :ok
+    end
+  rescue
+    _ -> :ok
+  end
+
+  defp stat_seconds(path) do
+    case File.stat(path, time: :posix) do
+      {:ok, stat} -> {:ok, %{mtime: stat.mtime}}
+      other -> other
     end
   end
 

@@ -33,8 +33,12 @@ defmodule Genswarms.Agents.AutoDeliverTest do
   @fake_szc """
   #!/usr/bin/env bash
   # Fake subzeroclaw: same I/O contract as the real harness.
+  # SILENT → no stdout answer; SLOW → 600ms of "thinking" before answering.
   while IFS= read -r -d '' turn; do
     printf '[1] fake-model...\\n' >&2
+    case "$turn" in
+      *SLOW*) sleep 0.6 ;;
+    esac
     case "$turn" in
       *SILENT*) : ;;
       *) printf 'ANSWER to: %s\\n' "$turn" ;;
@@ -177,6 +181,56 @@ defmodule Genswarms.Agents.AutoDeliverTest do
 
     assert_receive {:no_final_text, %{agent: :writer}}, 8_000
     refute_receive {:sink_got, _, _}, 500
+  end
+
+  test "BLOCKER regression: explicit send during turn N + queued follow-up — N is suppressed, N+1 still delivers",
+       %{workspace: ws, fixture: fixture} do
+    # The adversarial review's headline finding: with seq-at-noting-time
+    # attribution, the explicit send written late in turn N got stamped with
+    # N+1 (the follow-up had already begun a new turn), suppressing the
+    # FOLLOW-UP's legitimate answer. Exact stamping via the synchronous sweep
+    # fixes the attribution; serial turns fix the dispatch accounting.
+    swarm = start_swarm(ws, fixture, self(), 300)
+
+    :ok = AgentServer.send_task(swarm, :writer, "SLOW first")
+    # While turn 1 is still thinking: the agent explicitly replies via outbox,
+    # and the user sends a follow-up (which must QUEUE, not pipeline).
+    Process.sleep(150)
+    outbox = Path.join(ws, ".outbox")
+    File.mkdir_p!(outbox)
+
+    File.write!(
+      Path.join(outbox, "0001_sink_explicit.json"),
+      Jason.encode!(%{to: "sink", content: "EXPLICIT REPLY"})
+    )
+
+    :ok = AgentServer.send_task(swarm, :writer, "second")
+
+    # The explicit reply arrives, turn 1's auto-delivery is suppressed in its
+    # favor — and turn 2's answer is NOT collateral damage.
+    assert_receive {:sink_got, :writer, "EXPLICIT REPLY"}, 8_000
+    assert_receive {:sink_got, :writer, "ANSWER to: [From orchestrator] second"}, 8_000
+    refute_receive {:sink_got, _, "ANSWER to: [From orchestrator] SLOW first"}, 600
+  end
+
+  test "a broadcast during the turn also counts as an explicit send (no double delivery)",
+       %{workspace: ws, fixture: fixture} do
+    swarm = start_swarm(ws, fixture, self(), 300)
+
+    :ok = AgentServer.send_task(swarm, :writer, "SLOW bb")
+    Process.sleep(150)
+    outbox = Path.join(ws, ".outbox")
+    File.mkdir_p!(outbox)
+
+    File.write!(
+      Path.join(outbox, "0001_broadcast.json"),
+      Jason.encode!(%{broadcast: true, content: "NOTICE TO ALL"})
+    )
+
+    # the broadcast reaches the sink (it's in the topology)...
+    assert_receive {:sink_got, :writer, "NOTICE TO ALL"}, 8_000
+    # ...and the turn's text is not delivered on top of it.
+    refute_receive {:sink_got, _, "ANSWER to: [From orchestrator] SLOW bb"}, 600
   end
 
   test "an explicit outbox send to the sink suppresses the automatic delivery",

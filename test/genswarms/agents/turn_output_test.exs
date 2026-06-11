@@ -120,5 +120,15 @@ defmodule Genswarms.Agents.TurnOutputTest do
     test "plain-text buffers (mock backend) pass through with markers stripped" do
       assert TurnOutput.reply_text("hello<<TURN_COMPLETE>>") == "hello"
     end
+
+    test "invalid UTF-8 bytes never raise (wrapper-less backends can emit them)" do
+      # an agent cat-ing a binary file on a raw backend
+      buffer = "before " <> <<0xFF, 0xFE, 0x80>> <> " after<<TURN_COMPLETE>>"
+      assert is_binary(TurnOutput.reply_text(buffer))
+
+      # invalid bytes inside a JSON-ish object too
+      buffer2 = ~s({"type":"output","content":") <> <<0xC3>> <> ~s("})
+      assert is_binary(TurnOutput.reply_text(buffer2))
+    end
   end
 end

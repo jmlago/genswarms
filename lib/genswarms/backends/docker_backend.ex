@@ -452,7 +452,16 @@ defmodule Genswarms.Backends.DockerBackend do
         n when is_integer(n) and n > 0 ->
           " && echo \"max_turns = #{n}\" >> /root/.subzeroclaw/config"
 
-        _ ->
+        nil ->
+          ""
+
+        bad ->
+          # Never drop an operator-set budget silently (the integer guard is
+          # the injection defense, not a parser).
+          Logger.warning(
+            "docker: ignoring non-integer max_turns #{inspect(bad)} — step budget NOT applied"
+          )
+
           ""
       end
 

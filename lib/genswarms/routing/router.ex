@@ -427,6 +427,16 @@ defmodule Genswarms.Routing.Router do
   end
 
   # The validated body of a route_ask (the asker is known to be an agent).
+  # Non-binary content is refused with a typed envelope BEFORE anything else:
+  # it originates inside the agent sandbox, and letting it through would crash
+  # the singleton Router on String.slice below (taking every swarm's topology
+  # with it) and the target object's handler besides.
+  defp do_route_ask(swarm_name, from, _to, content, corr, state)
+       when not is_binary(content) do
+    ask_error(swarm_name, from, corr, "invalid_content", "ask content must be a string")
+    {:noreply, state}
+  end
+
   defp do_route_ask(swarm_name, from, to, content, corr, state) do
     case Map.get(state.topologies, swarm_name) do
       nil ->

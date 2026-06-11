@@ -9,6 +9,11 @@ defmodule Genswarms.Agents.AskTest do
       assert Ask.valid_correlation_id?("a-B.0_z")
     end
 
+    test "rejects a trailing newline (the ^$ vs \\A\\z regex trap)" do
+      refute Ask.valid_correlation_id?("abc\n")
+      refute Ask.valid_correlation_id?("abc\nx")
+    end
+
     test "rejects path traversal and shell metacharacters" do
       refute Ask.valid_correlation_id?("../etc/passwd")
       refute Ask.valid_correlation_id?("a/b")
@@ -66,6 +71,15 @@ defmodule Genswarms.Agents.AskTest do
       env = Ask.envelope("plain text", "c5", 1)
       assert env.ok == true
       assert env.result == %{"raw" => "plain text"}
+    end
+
+    test "error-null/false is SUCCESS (JSON-RPC shape), not a failure" do
+      env = Ask.envelope(~s({"result":42,"error":null}), "cn1", 1)
+      assert env.ok == true
+      assert env.error == nil
+
+      env = Ask.envelope(%{"data" => 1, "error" => false}, "cn2", 1)
+      assert env.ok == true
     end
 
     test "a native handler's map reply gets the same semantics as encoded JSON" do

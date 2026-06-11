@@ -11,6 +11,7 @@ defmodule GenswarmsWeb.Plugs.ApiAuthTest do
 
   setup do
     prev = Application.get_env(:genswarms, :api_token)
+
     on_exit(fn ->
       case prev do
         nil -> Application.delete_env(:genswarms, :api_token)

@@ -177,7 +177,9 @@ defmodule GenswarmsWeb.ConfigController do
   end
 
   defp format_validation_errors(:exs_string_not_supported) do
-    ["Executable .exs configs are not accepted as request content; use json/yaml or a server-side config_path."]
+    [
+      "Executable .exs configs are not accepted as request content; use json/yaml or a server-side config_path."
+    ]
   end
 
   defp format_validation_errors(reason) when is_binary(reason) do

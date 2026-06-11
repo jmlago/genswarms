@@ -217,8 +217,14 @@ $(cat "$file")"
     mv -f "$tmpfile" "$outbox_dir/$filename"
 
     # Block until the engine writes the reply envelope (atomic rename, so an
-    # existing file is always complete), or until the timeout.
+    # existing file is always complete), or until the timeout. The timeout
+    # must be a positive integer: anything else would crash the arithmetic
+    # below AFTER the ask was already published, breaking the
+    # one-well-formed-envelope stdout contract — fall back to the default.
     timeout="${SWARM_ASK_TIMEOUT:-30}"
+    case "$timeout" in
+        ''|*[!0-9]*) timeout=30 ;;
+    esac
     start=$(date +%s)
     while :; do
         if [ -f "$reply_file" ]; then
@@ -233,9 +239,12 @@ $(cat "$file")"
         sleep 0.1 2>/dev/null || sleep 1
     done
 
+    # NOTE: $to is deliberately NOT interpolated into the message — it is
+    # model-supplied and could contain a quote, breaking the envelope JSON.
+    # $timeout and $corr are validated/generated above (digits / safe charset).
     elapsed_ms=$(( ($(date +%s) - start) * 1000 ))
-    printf '{"ok":false,"result":null,"error":{"code":"timeout","message":"no reply from %s within %ss","type":"transient"},"timeout":true,"correlation_id":"%s","duration_ms":%d}\n' \
-        "$to" "$timeout" "$corr" "$elapsed_ms"
+    printf '{"ok":false,"result":null,"error":{"code":"timeout","message":"no reply within %s seconds","type":"transient"},"timeout":true,"correlation_id":"%s","duration_ms":%d}\n' \
+        "$timeout" "$corr" "$elapsed_ms"
 }
 
 broadcast_message() {

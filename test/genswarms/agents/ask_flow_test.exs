@@ -201,6 +201,42 @@ defmodule Genswarms.Agents.AskFlowTest do
     assert env["error"]["type"] == "permanent"
   end
 
+  test "an ask FROM a non-agent is dropped without crashing anything",
+       %{swarm: swarm, workspace: ws} do
+    # API misuse guard: agents and objects share the Registry keyspace, so
+    # answering a non-agent would cast an unknown message into an ObjectServer.
+    Router.ask(swarm, :echo, :silent, "x", "ask_from_obj")
+    Process.sleep(200)
+    refute File.exists?(reply_path(ws, "ask_from_obj"))
+
+    # the router and the objects survive: a legitimate ask still works
+    corr = "ask_after_misuse"
+    Router.ask(swarm, :alpha, :echo, "ping", corr)
+    assert {:ok, %{"ok" => true}} = await_reply(ws, corr)
+  end
+
+  test "non-binary ask content is refused with a typed envelope (router survives)",
+       %{swarm: swarm, workspace: ws} do
+    # Written as an outbox file the way a misbehaving agent would: JSON object
+    # content instead of a string. Goes through the real LogWatcher pattern
+    # guards — the file is dropped as invalid, nothing crashes.
+    outbox = Path.join(ws, ".outbox")
+    File.mkdir_p!(outbox)
+
+    File.write!(
+      Path.join(outbox, "0001_echo_bad.json"),
+      ~s({"to":"echo","content":{"a":1},"reply_to":"ask_nonbin"})
+    )
+
+    Process.sleep(700)
+    refute File.exists?(reply_path(ws, "ask_nonbin"))
+
+    # router still routes; a follow-up ask works
+    corr = "ask_after_nonbin"
+    Router.ask(swarm, :alpha, :echo, "ping", corr)
+    assert {:ok, %{"ok" => true}} = await_reply(ws, corr)
+  end
+
   test "an ask to an agent (not an object) is a typed error", %{swarm: swarm, workspace: ws} do
     # Give alpha a self-edge? Not needed: agents can route to other agents via
     # topology; here we ask :alpha itself via a back-edge target. Build the

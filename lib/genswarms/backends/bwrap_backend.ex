@@ -37,6 +37,8 @@ defmodule Genswarms.Backends.BwrapBackend do
 
   @behaviour Genswarms.Backends.BackendBehaviour
 
+  require Logger
+
   alias Genswarms.Backends.Bwrap.{OverlayManager, CgroupManager, AgentTelemetry}
   alias Genswarms.Backends.EgressGuard
   alias Genswarms.Observability.LogStore
@@ -362,7 +364,16 @@ defmodule Genswarms.Backends.BwrapBackend do
         File.write!(Path.join(dir, "config"), "max_turns = #{n}\n")
         :ok
 
-      _ ->
+      nil ->
+        :ok
+
+      bad ->
+        # An operator who set a budget believes it's on — never drop it
+        # silently (the integer guard is the injection defense, not a parser).
+        Logger.warning(
+          "bwrap: ignoring non-integer max_turns #{inspect(bad)} — step budget NOT applied"
+        )
+
         :ok
     end
   end

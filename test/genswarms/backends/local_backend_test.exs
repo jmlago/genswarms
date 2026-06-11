@@ -23,11 +23,13 @@ defmodule Genswarms.Backends.LocalBackendTest do
       argv_out = Path.join(tmp, "argv.txt")
       # A stub "wrapper" that records the argv it actually received, then exits.
       stub = Path.join(tmp, "stub-wrapper.sh")
+
       File.write!(stub, """
       #!/usr/bin/env bash
       printf '%s\\n' "$@" > "#{argv_out}"
       exit 0
       """)
+
       File.chmod!(stub, 0o755)
       on_exit(fn -> File.rm_rf(tmp) end)
       {:ok, tmp: tmp, stub: stub, argv_out: argv_out}

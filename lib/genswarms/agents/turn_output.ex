@@ -24,14 +24,21 @@ defmodule Genswarms.Agents.TurnOutput do
   @doc """
   The turn's reply text: harness stdout minus protocol mechanics. `""` when the
   turn produced no user-facing text.
+
+  Total: invalid UTF-8 (a harness `cat`ing a binary file on a wrapper-less
+  backend) is handled byte-wise by the scanner, and any unforeseen failure
+  degrades to `""` — which the caller surfaces as `no_final_text` — instead of
+  crashing the AgentServer mid-turn.
   """
-  @spec reply_text(String.t()) :: String.t()
+  @spec reply_text(binary()) :: String.t()
   def reply_text(buffer) when is_binary(buffer) do
     buffer
     |> segments()
     |> Enum.flat_map(&segment_text/1)
     |> Enum.join("\n")
     |> clean()
+  rescue
+    _ -> ""
   end
 
   @doc """
@@ -47,6 +54,10 @@ defmodule Genswarms.Agents.TurnOutput do
   end
 
   # ── scanner ────────────────────────────────────────────────────────────────
+  # Byte-wise on purpose: the buffer may contain invalid UTF-8 (raw backends,
+  # binary output). All the scanner compares are ASCII bytes ({ } " \), which
+  # never appear inside multi-byte UTF-8 sequences, so byte matching is both
+  # total and correct.
 
   defp scan("", acc, raw), do: Enum.reverse(flush_raw(acc, raw))
 
@@ -68,8 +79,8 @@ defmodule Genswarms.Agents.TurnOutput do
     end
   end
 
-  defp scan(<<ch::utf8, rest::binary>>, acc, raw),
-    do: scan(rest, acc, raw <> <<ch::utf8>>)
+  defp scan(<<ch, rest::binary>>, acc, raw),
+    do: scan(rest, acc, raw <> <<ch>>)
 
   defp flush_raw(acc, ""), do: acc
   defp flush_raw(acc, raw), do: [{:raw, raw} | acc]
@@ -77,8 +88,8 @@ defmodule Genswarms.Agents.TurnOutput do
   # take_object(buffer, depth, in_string?, escaped?, taken)
   defp take_object("", _depth, _in_s, _esc, _taken), do: :incomplete
 
-  defp take_object(<<ch::utf8, rest::binary>>, depth, in_s, esc, taken) do
-    taken = taken <> <<ch::utf8>>
+  defp take_object(<<ch, rest::binary>>, depth, in_s, esc, taken) do
+    taken = taken <> <<ch>>
 
     cond do
       esc -> take_object(rest, depth, in_s, false, taken)

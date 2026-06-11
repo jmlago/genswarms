@@ -111,8 +111,10 @@ exec 3>&-
 wait $SZC_PID 2>/dev/null
 EXIT_STATUS=$?
 
-# Wait for output processing
+# Wait for output processing (stderr too — the final stderr lines are often
+# the fatal error explaining the exit; both loops hit EOF once szc is gone)
 wait $OUTPUT_PID 2>/dev/null
+wait $ERR_PID 2>/dev/null
 
 echo "{\"type\":\"exit\",\"status\":$EXIT_STATUS}"
 exit $EXIT_STATUS
